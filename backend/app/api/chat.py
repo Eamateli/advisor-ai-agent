@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -10,6 +10,7 @@ from app.core.auth import get_current_user
 from app.models.user import User
 from app.models.chat import ChatMessage, MessageRole
 from app.agents.agent import create_agent
+from app.core.rate_limit import rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -24,53 +25,64 @@ class ChatHistoryResponse(BaseModel):
     messages: List[dict]
     total: int
 
+# Rate limit dependency
+async def check_chat_rate_limit(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    """Check rate limits for chat endpoint"""
+    await rate_limiter.check_request(
+        request=request,
+        user_id=user.id,
+        max_per_minute=10,
+        max_per_hour=100
+    )
+
 # Endpoints
 @router.post("/stream")
 async def chat_stream(
     request: ChatRequest,
+    req: Request,
     db: Session = Depends(get_db),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    _rate_limit: None = Depends(check_chat_rate_limit)
 ):
-    """
-    Stream chat responses with Server-Sent Events (SSE)
-    
-    Event types:
-    - content: Text chunks from Claude
-    - tool_use_start: Tool execution started
-    - tool_result: Tool execution completed
-    - done: Response complete
-    - error: Error occurred
-    """
+    """Stream chat responses with SSE (Rate Limited: 10/min, 100/hour)"""
     
     async def event_generator():
         try:
-            # Create agent
-            agent = create_agent(db, user)
+            agent = create_agent(db, user, request=req)
             
-            # Stream responses
-            async for event in agent.chat_stream(
-                user_message=request.message
-            ):
-                # Format as SSE
+            async for event in agent.chat_stream(user_message=request.message):
                 event_data = json.dumps(event)
                 yield f"data: {event_data}\n\n"
         
-        except Exception as e:
-            logger.error(f"Error in chat stream: {e}")
+        except HTTPException as he:
             error_event = json.dumps({
                 "type": "error",
-                "error": str(e)
+                "error": he.detail,
+                "status_code": he.status_code
             })
             yield f"data: {error_event}\n\n"
+        
+        except Exception as e:
+            logger.error(f"Error in chat stream: {e}")
+            error_event = json.dumps({"type": "error", "error": str(e)})
+            yield f"data: {error_event}\n\n"
+    
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no"
+    }
+    
+    if hasattr(req.state, 'rate_limit_headers'):
+        headers.update(req.state.rate_limit_headers)
     
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"  # Disable proxy buffering
-        }
+        headers=headers
     )
 
 @router.get("/history", response_model=ChatHistoryResponse)
@@ -80,34 +92,27 @@ async def get_chat_history(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user)
 ):
-    """Get chat history for current user"""
+    """Get chat history"""
+    total = db.query(ChatMessage).filter(ChatMessage.user_id == user.id).count()
     
-    # Get total count
-    total = db.query(ChatMessage).filter(
-        ChatMessage.user_id == user.id
-    ).count()
-    
-    # Get messages
     messages = db.query(ChatMessage).filter(
         ChatMessage.user_id == user.id
     ).order_by(ChatMessage.created_at.desc()).limit(limit).offset(offset).all()
     
-    messages = list(reversed(messages))  # Oldest first
+    messages = list(reversed(messages))
     
-    formatted_messages = []
-    for msg in messages:
-        formatted_messages.append({
+    formatted_messages = [
+        {
             "id": msg.id,
             "role": msg.role.value,
             "content": msg.content,
             "tool_calls": msg.tool_calls,
             "created_at": msg.created_at.isoformat()
-        })
+        }
+        for msg in messages
+    ]
     
-    return ChatHistoryResponse(
-        messages=formatted_messages,
-        total=total
-    )
+    return ChatHistoryResponse(messages=formatted_messages, total=total)
 
 @router.delete("/history")
 async def clear_chat_history(
@@ -115,13 +120,8 @@ async def clear_chat_history(
     user: User = Depends(get_current_user)
 ):
     """Clear chat history"""
-    
-    db.query(ChatMessage).filter(
-        ChatMessage.user_id == user.id
-    ).delete()
-    
+    db.query(ChatMessage).filter(ChatMessage.user_id == user.id).delete()
     db.commit()
-    
     return {"message": "Chat history cleared"}
 
 @router.get("/instructions")
@@ -168,7 +168,6 @@ async def delete_instruction(
     
     db.delete(instruction)
     db.commit()
-    
     return {"message": "Instruction deleted"}
 
 @router.get("/tasks")
@@ -194,5 +193,113 @@ async def get_active_tasks(
                 "created_at": task.created_at.isoformat()
             }
             for task in tasks
+        ]
+    }
+
+# CONSENT MANAGEMENT
+
+@router.get("/consent")
+async def get_user_consents(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Get user's consent settings"""
+    from app.models.consent import UserConsent
+    
+    consents = db.query(UserConsent).filter(UserConsent.user_id == user.id).all()
+    
+    return {
+        "consents": [
+            {
+                "id": c.id,
+                "action_type": c.action_type,
+                "scope": c.scope,
+                "is_granted": c.is_granted,
+                "conditions": c.conditions,
+                "granted_at": c.granted_at.isoformat() if c.granted_at else None,
+                "last_used_at": c.last_used_at.isoformat() if c.last_used_at else None,
+                "use_count": c.use_count
+            }
+            for c in consents
+        ]
+    }
+
+class ConsentRequest(BaseModel):
+    action_type: str
+    scope: str = "all"
+    conditions: Optional[dict] = None
+
+@router.post("/consent/grant")
+async def grant_consent(
+    request: ConsentRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Grant consent for autonomous actions"""
+    from app.models.consent import consent_manager
+    
+    consent = consent_manager.grant_consent(
+        db=db,
+        user_id=user.id,
+        action_type=request.action_type,
+        scope=request.scope,
+        conditions=request.conditions
+    )
+    
+    return {
+        "message": f"Consent granted for {request.action_type}",
+        "consent_id": consent.id
+    }
+
+@router.post("/consent/revoke/{action_type}")
+async def revoke_consent(
+    action_type: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Revoke consent for an action"""
+    from app.models.consent import consent_manager
+    
+    success = consent_manager.revoke_consent(
+        db=db,
+        user_id=user.id,
+        action_type=action_type
+    )
+    
+    if not success:
+        raise HTTPException(status_code=404, detail="Consent not found")
+    
+    return {"message": f"Consent revoked for {action_type}"}
+
+# AUDIT LOGS
+
+@router.get("/audit")
+async def get_audit_logs(
+    limit: int = 50,
+    action: Optional[str] = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user)
+):
+    """Get audit logs for current user"""
+    from app.core.audit import AuditLog
+    
+    query = db.query(AuditLog).filter(AuditLog.user_id == user.id)
+    
+    if action:
+        query = query.filter(AuditLog.action == action)
+    
+    logs = query.order_by(AuditLog.created_at.desc()).limit(limit).all()
+    
+    return {
+        "audit_logs": [
+            {
+                "id": log.id,
+                "action": log.action,
+                "resource_type": log.resource_type,
+                "status": log.status,
+                "details": log.details,
+                "created_at": log.created_at.isoformat()
+            }
+            for log in logs
         ]
     }
