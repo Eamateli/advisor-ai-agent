@@ -41,7 +41,25 @@ class Settings(BaseSettings):
     ENCRYPTION_KEY: str
 
     # Environment
-    ENVIRONMENT: str = "development" 
+    ENVIRONMENT: str = "development"
+    
+    # OpenAI for Embeddings (RAG Pipeline)
+    OPENAI_API_KEY: str
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_DIMENSION: int = 1536  # Dimension for text-embedding-3-small
+    
+    # Anthropic Claude for AI Agent (will be used in Chat 5)
+    ANTHROPIC_API_KEY: Optional[str] = None  # Optional for now
+    
+    # RAG Configuration
+    CHUNK_SIZE: int = 500  # Characters per chunk
+    CHUNK_OVERLAP: int = 50  # Overlap between chunks for context
+    MAX_CONTEXT_DOCUMENTS: int = 10  # Max documents to include in LLM context
+    SIMILARITY_THRESHOLD: float = 0.7  # Minimum similarity score (0-1)
+    
+    # Rate Limiting (Security)
+    RATE_LIMIT_PER_MINUTE: int = 60
+    RATE_LIMIT_PER_HOUR: int = 1000
     
     # Security
     @property
