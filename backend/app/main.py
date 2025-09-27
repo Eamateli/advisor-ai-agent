@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from app.core.config import settings
-from app.api import auth, rag, sync, webhooks
+from app.api import auth, rag, sync, webhooks, chat
 import logging
 
 # Configure logging
@@ -38,6 +38,7 @@ app.include_router(auth.router)
 app.include_router(rag.router)
 app.include_router(sync.router)
 app.include_router(webhooks.router)
+app.include_router(chat.router)
 
 @app.get("/")
 async def root():
@@ -66,6 +67,10 @@ async def health_check():
             "gmail": "configured",
             "calendar": "configured",
             "hubspot": "configured"
+        },
+        "agent": {
+            "tools": "configured",
+            "streaming": "enabled"
         }
     }
 
