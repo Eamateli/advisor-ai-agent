@@ -2,6 +2,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 import httpx
 from app.core.config import settings
+from urllib.parse import urlencode
 
 class HubSpotOAuthService:
     """Handles HubSpot OAuth flow and token management"""
@@ -19,7 +20,7 @@ class HubSpotOAuthService:
             "state": state
         }
         
-        query_string = "&".join([f"{k}={v}" for k, v in params.items()])
+        query_string = urlencode(params)
         return f"{self.auth_url}?{query_string}"
     
     async def exchange_code_for_tokens(self, code: str) -> dict:

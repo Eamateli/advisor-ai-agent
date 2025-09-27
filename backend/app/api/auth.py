@@ -72,10 +72,15 @@ async def google_callback(code: str, state: str, db: Session = Depends(get_db)):
         expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     
-    # Redirect to frontend with token
-    return RedirectResponse(
-        url=f"{settings.FRONTEND_URL}/auth/callback?token={access_token}"
-    )
+    # TEMPORARILY return JSON instead of redirect
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "email": user.email,
+            "name": user.full_name
+        }
+    }
 
 @router.get("/hubspot/login")
 async def hubspot_login(user: User = Depends(get_current_user)):
