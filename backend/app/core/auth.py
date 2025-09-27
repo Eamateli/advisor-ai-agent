@@ -19,14 +19,14 @@ async def get_current_user(
     token = credentials.credentials
     payload = verify_token(token)
     
-    user_id: int = payload.get("sub")
+    user_id: str = payload.get("sub")  # Changed from int to str
     if user_id is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials"
         )
     
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == int(user_id)).first()  # Convert back to int
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
