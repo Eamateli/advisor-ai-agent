@@ -1,7 +1,8 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 import logging
+from fastapi import Request
 from app.models.user import User
 from app.models.task import Task, TaskStatus, Instruction
 from app.services.hybrid_search import hybrid_search_service
@@ -9,74 +10,109 @@ from app.integrations.gmail_service import GmailService
 from app.integrations.calendar_service import CalendarService
 from app.integrations.hubspot_service import HubSpotService
 from app.core.auth import get_google_credentials, get_hubspot_token
+from app.core.audit import audit_logger
+from app.models.consent import consent_manager
 
 logger = logging.getLogger(__name__)
 
 class ToolExecutor:
-    """Execute agent tools"""
+    """Execute agent tools with security checks"""
     
-    def __init__(self, db: Session, user: User):
+    def __init__(self, db: Session, user: User, request: Request = None):
         self.db = db
         self.user = user
+        self.request = request
     
     async def execute(self, tool_name: str, tool_input: Dict) -> Dict[str, Any]:
-        """
-        Execute a tool and return results
-        
-        Returns:
-            Dict with success status and result/error
-        """
+        """Execute a tool with security checks"""
         try:
             logger.info(f"Executing tool: {tool_name} with input: {tool_input}")
             
-            # Route to appropriate handler
-            if tool_name == "search_knowledge_base":
-                return await self._search_knowledge_base(tool_input)
+            # Execute tool
+            result = await self._execute_tool(tool_name, tool_input)
             
-            elif tool_name == "search_emails":
-                return await self._search_emails(tool_input)
+            # Audit logging
+            audit_logger.log_tool_execution(
+                db=self.db,
+                user_id=self.user.id,
+                user_email=self.user.email,
+                tool_name=tool_name,
+                tool_input=tool_input,
+                result=result,
+                status="success" if result.get("success") else "failure",
+                error=result.get("error"),
+                ip_address=self.request.client.host if self.request else None,
+                user_agent=self.request.headers.get("user-agent") if self.request else None
+            )
             
-            elif tool_name == "send_email":
-                return await self._send_email(tool_input)
-            
-            elif tool_name == "check_availability":
-                return await self._check_availability(tool_input)
-            
-            elif tool_name == "create_calendar_event":
-                return await self._create_calendar_event(tool_input)
-            
-            elif tool_name == "search_calendar_events":
-                return await self._search_calendar_events(tool_input)
-            
-            elif tool_name == "search_hubspot_contacts":
-                return await self._search_hubspot_contacts(tool_input)
-            
-            elif tool_name == "create_hubspot_contact":
-                return await self._create_hubspot_contact(tool_input)
-            
-            elif tool_name == "add_hubspot_note":
-                return await self._add_hubspot_note(tool_input)
-            
-            elif tool_name == "create_task":
-                return await self._create_task(tool_input)
-            
-            elif tool_name == "update_task":
-                return await self._update_task(tool_input)
-            
-            elif tool_name == "save_instruction":
-                return await self._save_instruction(tool_input)
-            
-            else:
-                return {
-                    "success": False,
-                    "error": f"Unknown tool: {tool_name}"
-                }
+            return result
         
         except Exception as e:
             logger.error(f"Error executing tool {tool_name}: {e}")
+            
+            # Audit the error
+            audit_logger.log_tool_execution(
+                db=self.db,
+                user_id=self.user.id,
+                user_email=self.user.email,
+                tool_name=tool_name,
+                tool_input=tool_input,
+                result={"success": False, "error": str(e)},
+                status="failure",
+                error=str(e),
+                ip_address=self.request.client.host if self.request else None,
+                user_agent=self.request.headers.get("user-agent") if self.request else None
+            )
+            
             return {
                 "success": False,
                 "error": str(e)
+            }
+    
+    async def _execute_tool(self, tool_name: str, tool_input: Dict) -> Dict:
+        """Internal tool execution"""
+        
+        # Route to appropriate handler
+        if tool_name == "search_knowledge_base":
+            return await self._search_knowledge_base(tool_input)
+        
+        elif tool_name == "search_emails":
+            return await self._search_emails(tool_input)
+        
+        elif tool_name == "send_email":
+            return await self._send_email(tool_input)
+        
+        elif tool_name == "check_availability":
+            return await self._check_availability(tool_input)
+        
+        elif tool_name == "create_calendar_event":
+            return await self._create_calendar_event(tool_input)
+        
+        elif tool_name == "search_calendar_events":
+            return await self._search_calendar_events(tool_input)
+        
+        elif tool_name == "search_hubspot_contacts":
+            return await self._search_hubspot_contacts(tool_input)
+        
+        elif tool_name == "create_hubspot_contact":
+            return await self._create_hubspot_contact(tool_input)
+        
+        elif tool_name == "add_hubspot_note":
+            return await self._add_hubspot_note(tool_input)
+        
+        elif tool_name == "create_task":
+            return await self._create_task(tool_input)
+        
+        elif tool_name == "update_task":
+            return await self._update_task(tool_input)
+        
+        elif tool_name == "save_instruction":
+            return await self._save_instruction(tool_input)
+        
+        else:
+            return {
+                "success": False,
+                "error": f"Unknown tool: {tool_name}"
             }
     
     # RAG TOOL
@@ -123,7 +159,6 @@ class ToolExecutor:
             max_results=20
         )
         
-        # Format for LLM
         formatted_emails = []
         for email in emails:
             formatted_emails.append({
@@ -188,7 +223,7 @@ class ToolExecutor:
         return {
             "success": True,
             "result": {
-                "free_slots": free_slots[:10],  # Return top 10
+                "free_slots": free_slots[:10],
                 "total_slots": len(free_slots)
             }
         }
@@ -227,7 +262,6 @@ class ToolExecutor:
         calendar = CalendarService(creds)
         
         query = input_data["query"]
-        
         events = await calendar.search_events(query, max_results=10)
         
         formatted_events = []
@@ -254,7 +288,6 @@ class ToolExecutor:
         
         query = input_data["query"]
         
-        # Try email search first
         if "@" in query:
             contact = await hubspot.get_contact_by_email(query)
             contacts = [contact] if contact else []
