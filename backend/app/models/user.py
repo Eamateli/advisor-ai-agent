@@ -39,3 +39,4 @@ class User(Base):
     chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="user", cascade="all, delete-orphan")
     instructions = relationship("Instruction", back_populates="user", cascade="all, delete-orphan")
+    consents = relationship("UserConsent", back_populates="user", cascade="all, delete-orphan")
