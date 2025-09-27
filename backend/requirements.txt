@@ -33,3 +33,14 @@ redis==5.0.1
 # Utilities
 pydantic==2.5.3
 pydantic-settings==2.1.0
+
+# Vector Database
+pgvector==0.2.4
+
+# OpenAI for embeddings
+openai==1.12.0
+
+# Text processing
+tiktoken==0.5.2
+beautifulsoup4==4.12.3
+html2text==2020.1.16
