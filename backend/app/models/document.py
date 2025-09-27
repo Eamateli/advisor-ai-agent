@@ -1,5 +1,5 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Float, ForeignKey, JSON
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy import Column, Integer, String, Text, DateTime, Float, ForeignKey
+from sqlalchemy.dialects.postgresql import JSONB  # Changed from JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
@@ -13,30 +13,20 @@ class Document(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     
     # Document metadata
-    doc_type = Column(String, nullable=False, index=True)  # 'email', 'hubspot_contact', 'hubspot_note'
-    source_id = Column(String, nullable=False, index=True)  # Original ID from source system
+    doc_type = Column(String, nullable=False, index=True)
+    source_id = Column(String, nullable=False, index=True)
     
     # Content
     title = Column(String)
     content = Column(Text, nullable=False)
-    chunk_text = Column(Text)  # The actual chunk being embedded
-    chunk_index = Column(Integer, default=0)  # Which chunk this is
+    chunk_text = Column(Text)
+    chunk_index = Column(Integer, default=0)
     
     # Embedding
-    embedding = Column(Vector(1536))  # OpenAI text-embedding-3-small dimension
+    embedding = Column(Vector(1536))
     
-    # Rich metadata for filtering - RENAMED from 'metadata' to 'doc_metadata'
-    doc_metadata = Column(JSON)  # Store additional context
-    # Example metadata:
-    # {
-    #   "email_from": "client@example.com",
-    #   "email_to": ["advisor@example.com"],
-    #   "email_subject": "Meeting request",
-    #   "email_date": "2025-09-27T10:00:00Z",
-    #   "contact_name": "John Smith",
-    #   "contact_email": "john@example.com",
-    #   "hubspot_id": "12345"
-    # }
+    # Rich metadata - Changed to JSONB
+    doc_metadata = Column(JSONB)  # Changed from JSON to JSONB
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

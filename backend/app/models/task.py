@@ -24,15 +24,6 @@ class Task(Base):
     
     # Task memory - stores conversation state
     memory = Column(JSON)  # Store task execution history
-    # Example:
-    # {
-    #   "steps": [
-    #     {"action": "searched_calendar", "result": "found 3 slots"},
-    #     {"action": "sent_email", "to": "client@example.com", "message_id": "123"}
-    #   ],
-    #   "waiting_for": "email_response",
-    #   "context": {...}
-    # }
     
     # Related entities
     related_email_id = Column(String)  # Gmail ID if triggered by email
