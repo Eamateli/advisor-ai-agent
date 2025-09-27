@@ -32,8 +32,8 @@ class User(Base):
     # Relationships
     # messages = relationship("Message", back_populates="user")
     # tasks = relationship("Task", back_populates="user")
-    documents = relationship("Document", back_populates="user", cascade="all, delete-orphan")
-    emails = relationship("Email", back_populates="user", cascade="all, delete-orphan")
+    documents = relationship("Document", back_populates="user", cascade="all, delete-orphan", lazy="select")
+    emails = relationship("Email", back_populates="user", cascade="all, delete-orphan", lazy="select")
     hubspot_contacts = relationship("HubSpotContact", back_populates="user", cascade="all, delete-orphan")
     hubspot_notes = relationship("HubSpotNote", back_populates="user", cascade="all, delete-orphan")
     chat_messages = relationship("ChatMessage", back_populates="user", cascade="all, delete-orphan")

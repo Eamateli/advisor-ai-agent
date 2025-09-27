@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from app.core.config import settings
-from app.api import auth
+from app.api import auth, rag 
 import logging
 
 # Configure logging
@@ -35,6 +35,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(rag.router)  
 
 @app.get("/")
 async def root():
@@ -54,10 +55,13 @@ async def health_check():
         "oauth": {
             "google": bool(settings.GOOGLE_CLIENT_ID),
             "hubspot": bool(settings.HUBSPOT_CLIENT_ID)
+        },
+        "apis": {
+            "openai": bool(settings.OPENAI_API_KEY),
+            "anthropic": bool(settings.ANTHROPIC_API_KEY)
         }
     }
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-    
