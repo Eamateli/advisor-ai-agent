@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from app.core.config import settings
-from app.api import auth, rag 
+from app.api import auth, rag, sync, webhooks
 import logging
 
 # Configure logging
@@ -20,7 +20,7 @@ app = FastAPI(
 
 # Security Middleware
 app.add_middleware(
-    TrustedHostMiddleware, 
+    TrustedHostsMmiddleware, 
     allowed_hosts=settings.ALLOWED_HOSTS + ["*.onrender.com"]
 )
 
@@ -35,7 +35,9 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
-app.include_router(rag.router)  
+app.include_router(rag.router)
+app.include_router(sync.router)
+app.include_router(webhooks.router)
 
 @app.get("/")
 async def root():
@@ -59,6 +61,11 @@ async def health_check():
         "apis": {
             "openai": bool(settings.OPENAI_API_KEY),
             "anthropic": bool(settings.ANTHROPIC_API_KEY)
+        },
+        "integrations": {
+            "gmail": "configured",
+            "calendar": "configured",
+            "hubspot": "configured"
         }
     }
 
