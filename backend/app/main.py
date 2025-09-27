@@ -20,7 +20,7 @@ app = FastAPI(
 
 # Security Middleware
 app.add_middleware(
-    TrustedHostsMmiddleware, 
+    TrustedHostMiddleware, 
     allowed_hosts=settings.ALLOWED_HOSTS + ["*.onrender.com"]
 )
 

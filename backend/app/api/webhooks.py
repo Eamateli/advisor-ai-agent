@@ -7,7 +7,7 @@ import logging
 from app.core.database import get_db
 from app.models.user import User
 from app.services.batch_sync import batch_sync_service
-from app.core.auth import get_google_credentials, get_hubspot_token
+from app.core.auth import get_google_credentials, get_hubspot_token, get_current_user
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
