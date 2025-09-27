@@ -25,8 +25,8 @@ class Document(Base):
     # Embedding
     embedding = Column(Vector(1536))  # OpenAI text-embedding-3-small dimension
     
-    # Rich metadata for filtering
-    metadata = Column(JSON)  # Store additional context
+    # Rich metadata for filtering - RENAMED from 'metadata' to 'doc_metadata'
+    doc_metadata = Column(JSON)  # Store additional context
     # Example metadata:
     # {
     #   "email_from": "client@example.com",

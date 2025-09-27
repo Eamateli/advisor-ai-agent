@@ -29,7 +29,7 @@ class VectorSearchService:
             user_id: User ID to filter by
             query: Search query text
             doc_types: Filter by document types (e.g., ['email', 'hubspot_contact'])
-            metadata_filters: Additional JSON metadata filters
+            metadata_filters: Additional JSON doc_metadata filters
             limit: Maximum number of results (default: MAX_CONTEXT_DOCUMENTS)
             similarity_threshold: Minimum similarity score (default: SIMILARITY_THRESHOLD)
         
@@ -58,7 +58,7 @@ class VectorSearchService:
                 content,
                 chunk_text,
                 chunk_index,
-                metadata,
+                doc_metadata,
                 created_at,
                 (1 - (embedding <=> :query_embedding::vector)) as similarity
             FROM documents
@@ -75,10 +75,10 @@ class VectorSearchService:
             base_query += " AND doc_type = ANY(:doc_types)"
             params["doc_types"] = doc_types
         
-        # Add metadata filters
+        # Add doc_metadata filters
         if metadata_filters:
             for key, value in metadata_filters.items():
-                base_query += f" AND metadata->>'{key}' = :{key}"
+                base_query += f" AND doc_metadata->>'{key}' = :{key}"
                 params[key] = value
         
         # Add similarity threshold and ordering
@@ -106,7 +106,7 @@ class VectorSearchService:
                 "content": row.content,
                 "chunk_text": row.chunk_text,
                 "chunk_index": row.chunk_index,
-                "metadata": row.metadata,
+                "doc_metadata": row.doc_metadata,
                 "similarity": float(row.similarity),
                 "created_at": row.created_at
             })
@@ -122,12 +122,12 @@ class VectorSearchService:
         metadata_key: str,
         metadata_value: str
     ) -> List[Document]:
-        """Search documents by exact metadata match"""
+        """Search documents by exact doc_metadata match"""
         query = db.query(Document).filter(
             and_(
                 Document.user_id == user_id,
                 Document.doc_type == doc_type,
-                Document.metadata[metadata_key].astext == metadata_value
+                Document.doc_metadata[metadata_key].astext == metadata_value
             )
         )
         
@@ -153,33 +153,33 @@ class VectorSearchService:
             chunks.sort(key=lambda x: x['chunk_index'])
             
             doc_type = chunks[0]['doc_type']
-            metadata = chunks[0]['metadata']
+            doc_metadata = chunks[0]['doc_metadata']
             
             # Format based on document type
             if doc_type == 'email':
                 context_parts.append(f"\n--- Email ---")
-                context_parts.append(f"Subject: {metadata.get('subject', 'N/A')}")
-                context_parts.append(f"From: {metadata.get('from_name', '')} <{metadata.get('from_email', '')}>")
-                context_parts.append(f"Date: {metadata.get('date', 'N/A')}")
+                context_parts.append(f"Subject: {doc_metadata.get('subject', 'N/A')}")
+                context_parts.append(f"From: {doc_metadata.get('from_name', '')} <{doc_metadata.get('from_email', '')}>")
+                context_parts.append(f"Date: {doc_metadata.get('date', 'N/A')}")
                 context_parts.append("\nContent:")
                 for chunk in chunks:
                     context_parts.append(chunk['chunk_text'])
             
             elif doc_type == 'hubspot_contact':
                 context_parts.append(f"\n--- HubSpot Contact ---")
-                context_parts.append(f"Name: {metadata.get('contact_name', 'N/A')}")
-                context_parts.append(f"Email: {metadata.get('contact_email', 'N/A')}")
-                context_parts.append(f"Company: {metadata.get('company', 'N/A')}")
+                context_parts.append(f"Name: {doc_metadata.get('contact_name', 'N/A')}")
+                context_parts.append(f"Email: {doc_metadata.get('contact_email', 'N/A')}")
+                context_parts.append(f"Company: {doc_metadata.get('company', 'N/A')}")
                 context_parts.append("\nDetails:")
                 for chunk in chunks:
                     context_parts.append(chunk['chunk_text'])
             
             elif doc_type == 'hubspot_note':
                 context_parts.append(f"\n--- HubSpot Note ---")
-                if metadata.get('contact_name'):
-                    context_parts.append(f"About: {metadata.get('contact_name')}")
-                context_parts.append(f"Created by: {metadata.get('created_by', 'N/A')}")
-                context_parts.append(f"Date: {metadata.get('created_at', 'N/A')}")
+                if doc_metadata.get('contact_name'):
+                    context_parts.append(f"About: {doc_metadata.get('contact_name')}")
+                context_parts.append(f"Created by: {doc_metadata.get('created_by', 'N/A')}")
+                context_parts.append(f"Date: {doc_metadata.get('created_at', 'N/A')}")
                 context_parts.append("\nNote:")
                 for chunk in chunks:
                     context_parts.append(chunk['chunk_text'])

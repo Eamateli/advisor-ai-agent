@@ -5,6 +5,12 @@ from alembic import context
 import os
 import sys
 from pathlib import Path
+from app.models.user import User
+from app.models.document import Document
+from app.models.email import Email
+from app.models.hubspot import HubSpotContact, HubSpotNote
+from app.models.chat import ChatMessage
+from app.models.task import Task, Instruction
 
 # Add parent directory to path
 sys.path.append(str(Path(__file__).resolve().parents[1]))

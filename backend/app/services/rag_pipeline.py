@@ -1,5 +1,6 @@
 from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from app.models.document import Document
 from app.models.email import Email
 from app.models.hubspot import HubSpotContact, HubSpotNote
@@ -56,7 +57,7 @@ class RAGPipeline:
                     chunk_text=chunk['text'],
                     chunk_index=idx,
                     embedding=embedding,
-                    metadata=chunk['metadata']
+                    doc_metadata=chunk['doc_metadata']
                 )
                 documents.append(doc)
                 db.add(doc)
@@ -117,7 +118,7 @@ class RAGPipeline:
                     chunk_text=chunk['text'],
                     chunk_index=idx,
                     embedding=embedding,
-                    metadata=chunk['metadata']
+                    doc_metadata=chunk['doc_metadata']
                 )
                 documents.append(doc)
                 db.add(doc)
@@ -189,7 +190,7 @@ class RAGPipeline:
                     chunk_text=chunk['text'],
                     chunk_index=idx,
                     embedding=embedding,
-                    metadata=chunk['metadata']
+                    doc_metadata=chunk['doc_metadata']
                 )
                 documents.append(doc)
                 db.add(doc)
