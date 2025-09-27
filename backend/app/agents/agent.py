@@ -9,6 +9,8 @@ from app.services.claude_service import claude_service
 from app.agents.tools import AGENT_TOOLS
 from app.agents.tool_executor import ToolExecutor
 from app.agents.prompts import build_full_system_prompt
+from fastapi import Request
+
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +20,8 @@ class FinancialAdvisorAgent:
     def __init__(self, db: Session, user: User):
         self.db = db
         self.user = user
-        self.tool_executor = ToolExecutor(db, user)
+        self.request = request
+        self.tool_executor = ToolExecutor(db, user, request)
     
     async def chat_stream(
         self,
@@ -377,6 +380,6 @@ class FinancialAdvisorAgent:
         
         return messages
 
-def create_agent(db: Session, user: User) -> FinancialAdvisorAgent:
-    """Factory function to create agent"""
-    return FinancialAdvisorAgent(db, user)
+def create_agent(db: Session, user: User, request: Request = None) -> FinancialAdvisorAgent:
+    """Factory function to create agent with request context"""
+    return FinancialAdvisorAgent(db, user, request)
