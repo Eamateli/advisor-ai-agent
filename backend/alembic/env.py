@@ -5,19 +5,21 @@ from alembic import context
 import os
 import sys
 from pathlib import Path
+
+# Add parent directory to path FIRST
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+# NOW import everything (only once)
+from app.core.config import settings
+from app.core.database import Base
+
+# Import ALL models to ensure relationships work
 from app.models.user import User
 from app.models.document import Document
 from app.models.email import Email
 from app.models.hubspot import HubSpotContact, HubSpotNote
 from app.models.chat import ChatMessage
 from app.models.task import Task, Instruction
-
-# Add parent directory to path
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
-from app.core.config import settings
-from app.core.database import Base
-from app.models.user import User  # Import all models
 
 # this is the Alembic Config object
 config = context.config
@@ -29,6 +31,7 @@ config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
+# Set target metadata (only once)
 target_metadata = Base.metadata
 
 def run_migrations_offline() -> None:

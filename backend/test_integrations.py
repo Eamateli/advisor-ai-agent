@@ -4,13 +4,24 @@ Run: python test_integrations.py
 """
 import asyncio
 from datetime import datetime, timedelta
+import logging
+
+# Import database
 from app.core.database import SessionLocal
+
+# Import ALL models FIRST to avoid SQLAlchemy relationship errors
 from app.models.user import User
+from app.models.document import Document
+from app.models.email import Email
+from app.models.hubspot import HubSpotContact, HubSpotNote
+from app.models.chat import ChatMessage
+from app.models.task import Task, Instruction
+
+# Now import services
 from app.integrations.gmail_service import GmailService
 from app.integrations.calendar_service import CalendarService
 from app.integrations.hubspot_service import HubSpotService
 from app.core.auth import get_google_credentials, get_hubspot_token
-import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,7 +38,7 @@ async def test_gmail_integration():
         # Get test user
         user = db.query(User).filter(User.email == "test@example.com").first()
         if not user or not user.google_access_token:
-            print("❌ No user with Google OAuth found")
+            print("[FAIL] No user with Google OAuth found")
             print("   Please authenticate with Google first")
             return
         
@@ -35,15 +46,146 @@ async def test_gmail_integration():
         creds = await get_google_credentials(user, db)
         gmail = GmailService(creds)
         
+        # Test 1: Fetch recent messages
+        print("\n1. Testing fetch_messages...")
+        result = await gmail.fetch_messages(max_results=5)
+        print(f"   [PASS] Fetched {len(result['messages'])} messages")
+        
+        if result['messages']:
+            # Test 2: Get message detail
+            print("\n2. Testing get_message_detail...")
+            msg_id = result['messages'][0]['id']
+            detail = await gmail.get_message_detail(msg_id)
+            print(f"   [PASS] Got message: {detail.get('subject', 'No subject')[:50]}")
+            print(f"   From: {detail.get('from_name')} <{detail.get('from_email')}>")
+        
+        # Test 3: Search emails
+        print("\n3. Testing search_emails...")
+        emails = await gmail.search_emails(max_results=3)
+        print(f"   [PASS] Found {len(emails)} emails")
+        
+        print("\n[PASS] Gmail integration tests passed!")
+    
+    except Exception as e:
+        print(f"\n[FAIL] Gmail integration test failed: {e}")
+        logger.error(f"Gmail test error: {e}", exc_info=True)
+    
+    finally:
+        db.close()
+
+async def test_calendar_integration():
+    """Test Google Calendar API integration"""
+    print("\n" + "="*60)
+    print("TESTING GOOGLE CALENDAR INTEGRATION")
+    print("="*60)
+    
+    db = SessionLocal()
+    
+    try:
+        # Get test user
+        user = db.query(User).filter(User.email == "test@example.com").first()
+        if not user or not user.google_access_token:
+            print("[FAIL] No user with Google OAuth found")
+            return
+        
+        # Get credentials
+        creds = await get_google_credentials(user, db)
+        calendar = CalendarService(creds)
+        
+        # Test 1: Get upcoming events
+        print("\n1. Testing get_upcoming_events...")
+        events = await calendar.get_upcoming_events(max_results=5)
+        print(f"   [PASS] Found {len(events)} upcoming events")
+        
+        for event in events[:3]:
+            print(f"   - {event['summary']} at {event['start_time']}")
+        
+        # Test 2: Get free slots
+        print("\n2. Testing get_free_slots...")
+        start_date = datetime.utcnow()
+        end_date = start_date + timedelta(days=7)
+        
+        free_slots = await calendar.get_free_slots(
+            start_date=start_date,
+            end_date=end_date,
+            duration_minutes=30
+        )
+        print(f"   [PASS] Found {len(free_slots)} free slots in next 7 days")
+        
+        if free_slots:
+            print(f"   First slot: {free_slots[0]['start_formatted']}")
+        
+        # Test 3: Search events
+        print("\n3. Testing search_events...")
+        search_results = await calendar.search_events("meeting", max_results=3)
+        print(f"   [PASS] Found {len(search_results)} events matching 'meeting'")
+        
+        print("\n[PASS] Calendar integration tests passed!")
+    
+    except Exception as e:
+        print(f"\n[FAIL] Calendar integration test failed: {e}")
+        logger.error(f"Calendar test error: {e}", exc_info=True)
+    
+    finally:
+        db.close()
+
+async def test_hubspot_integration():
+    """Test HubSpot API integration"""
+    print("\n" + "="*60)
+    print("TESTING HUBSPOT INTEGRATION")
+    print("="*60)
+    
+    db = SessionLocal()
+    
+    try:
+        # Get test user
+        user = db.query(User).filter(User.email == "test@example.com").first()
+        if not user or not user.hubspot_access_token:
+            print("[FAIL] No user with HubSpot OAuth found")
+            print("   Please authenticate with HubSpot first")
+            return
+        
+        # Get token
+        token = await get_hubspot_token(user, db)
+        hubspot = HubSpotService(token)
+        
+        # Test 1: Get contacts
+        print("\n1. Testing get_contacts...")
+        result = await hubspot.get_contacts(limit=5)
+        contacts = result['contacts']
+        print(f"   [PASS] Fetched {len(contacts)} contacts")
+        
+        for contact in contacts[:3]:
+            name = f"{contact.get('first_name', '')} {contact.get('last_name', '')}".strip()
+            print(f"   - {name} ({contact.get('email')})")
+        
+        if contacts:
+            test_contact = contacts[0]
+            contact_id = test_contact['hubspot_id']
+            
+            # Test 2: Get contact notes
+            print("\n2. Testing get_contact_notes...")
+            notes = await hubspot.get_contact_notes(contact_id)
+            print(f"   [PASS] Found {len(notes)} notes for contact")
+            
+            # Test 3: Search contacts
+            print("\n3. Testing search_contacts...")
+            if test_contact.get('email'):
+                search_results = await hubspot.search_contacts(
+                    test_contact['email'],
+                    property_to_search="email"
+                )
+                print(f"   [PASS] Found {len(search_results)} contacts")
+        
         # Test 4: Batch sync
         print("\n4. Testing batch_sync_contacts...")
         batch_contacts = await hubspot.batch_sync_contacts(limit=10)
-        print(f"   ✓ Batch synced {len(batch_contacts)} contacts")
+        print(f"   [PASS] Batch synced {len(batch_contacts)} contacts")
         
-        print("\n✓ HubSpot integration tests passed!")
+        print("\n[PASS] HubSpot integration tests passed!")
     
     except Exception as e:
-        print(f"\n❌ HubSpot integration test failed: {e}")
+        print(f"\n[FAIL] HubSpot integration test failed: {e}")
         logger.error(f"HubSpot test error: {e}", exc_info=True)
     
     finally:
@@ -60,7 +202,7 @@ async def test_batch_sync():
     try:
         user = db.query(User).filter(User.email == "test@example.com").first()
         if not user:
-            print("❌ Test user not found")
+            print("[FAIL] Test user not found")
             return
         
         from app.services.batch_sync import batch_sync_service
@@ -70,11 +212,11 @@ async def test_batch_sync():
         has_hubspot = bool(user.hubspot_access_token)
         
         print(f"\nOAuth Status:")
-        print(f"   Google: {'✓' if has_google else '✗'}")
-        print(f"   HubSpot: {'✓' if has_hubspot else '✗'}")
+        print(f"   Google: {'[OK]' if has_google else '[MISSING]'}")
+        print(f"   HubSpot: {'[OK]' if has_hubspot else '[MISSING]'}")
         
         if not has_google and not has_hubspot:
-            print("\n⚠️  No OAuth connections found")
+            print("\n[WARN] No OAuth connections found")
             print("   Please authenticate with Google and/or HubSpot first")
             return
         
@@ -98,18 +240,18 @@ async def test_batch_sync():
             days_back=7  # Only last week to keep it quick
         )
         
-        print("\n✓ Batch Sync Complete!")
+        print("\n[PASS] Batch Sync Complete!")
         print(f"   Emails synced: {summary['emails_synced']}")
         print(f"   Contacts synced: {summary['contacts_synced']}")
         print(f"   Notes synced: {summary['notes_synced']}")
         
         if summary['errors']:
-            print(f"\n⚠️  Errors encountered:")
+            print(f"\n[WARN] Errors encountered:")
             for error in summary['errors']:
                 print(f"   - {error}")
     
     except Exception as e:
-        print(f"\n❌ Batch sync test failed: {e}")
+        print(f"\n[FAIL] Batch sync test failed: {e}")
         logger.error(f"Batch sync error: {e}", exc_info=True)
     
     finally:
@@ -118,9 +260,9 @@ async def test_batch_sync():
 async def run_all_tests():
     """Run all integration tests"""
     print("\n" + "="*60)
-    print("🚀 STARTING INTEGRATION TESTS")
+    print("STARTING INTEGRATION TESTS")
     print("="*60)
-    print("\n⚠️  Prerequisites:")
+    print("\nPrerequisites:")
     print("   1. User must be authenticated with Google OAuth")
     print("   2. User must be authenticated with HubSpot OAuth")
     print("   3. APIs must be enabled in Google Cloud Console")
@@ -136,147 +278,11 @@ async def run_all_tests():
     await test_batch_sync()
     
     print("\n" + "="*60)
-    print("✅ ALL INTEGRATION TESTS COMPLETE")
+    print("ALL INTEGRATION TESTS COMPLETE")
     print("="*60)
 
 if __name__ == "__main__":
-    print("\n🧪 Integration Test Suite")
+    print("\nIntegration Test Suite")
     print("Testing Gmail, Calendar, and HubSpot APIs\n")
     
-    asyncio.run(run_all_tests())1: Fetch recent messages
-        print("\n1. Testing fetch_messages...")
-        result = await gmail.fetch_messages(max_results=5)
-        print(f"   ✓ Fetched {len(result['messages'])} messages")
-        
-        if result['messages']:
-            # Test 2: Get message detail
-            print("\n2. Testing get_message_detail...")
-            msg_id = result['messages'][0]['id']
-            detail = await gmail.get_message_detail(msg_id)
-            print(f"   ✓ Got message: {detail.get('subject', 'No subject')[:50]}")
-            print(f"   From: {detail.get('from_name')} <{detail.get('from_email')}>")
-        
-        # Test 3: Search emails
-        print("\n3. Testing search_emails...")
-        emails = await gmail.search_emails(max_results=3)
-        print(f"   ✓ Found {len(emails)} emails")
-        
-        # Test 4: Batch sync (commented out to avoid too many API calls)
-        # print("\n4. Testing batch_sync_emails...")
-        # batch_emails = await gmail.batch_sync_emails(days_back=7, max_emails=10)
-        # print(f"   ✓ Batch synced {len(batch_emails)} emails")
-        
-        print("\n✓ Gmail integration tests passed!")
-    
-    except Exception as e:
-        print(f"\n❌ Gmail integration test failed: {e}")
-        logger.error(f"Gmail test error: {e}", exc_info=True)
-    
-    finally:
-        db.close()
-
-async def test_calendar_integration():
-    """Test Google Calendar API integration"""
-    print("\n" + "="*60)
-    print("TESTING GOOGLE CALENDAR INTEGRATION")
-    print("="*60)
-    
-    db = SessionLocal()
-    
-    try:
-        # Get test user
-        user = db.query(User).filter(User.email == "test@example.com").first()
-        if not user or not user.google_access_token:
-            print("❌ No user with Google OAuth found")
-            return
-        
-        # Get credentials
-        creds = await get_google_credentials(user, db)
-        calendar = CalendarService(creds)
-        
-        # Test 1: Get upcoming events
-        print("\n1. Testing get_upcoming_events...")
-        events = await calendar.get_upcoming_events(max_results=5)
-        print(f"   ✓ Found {len(events)} upcoming events")
-        
-        for event in events[:3]:
-            print(f"   - {event['summary']} at {event['start_time']}")
-        
-        # Test 2: Get free slots
-        print("\n2. Testing get_free_slots...")
-        start_date = datetime.utcnow()
-        end_date = start_date + timedelta(days=7)
-        
-        free_slots = await calendar.get_free_slots(
-            start_date=start_date,
-            end_date=end_date,
-            duration_minutes=30
-        )
-        print(f"   ✓ Found {len(free_slots)} free slots in next 7 days")
-        
-        if free_slots:
-            print(f"   First slot: {free_slots[0]['start_formatted']}")
-        
-        # Test 3: Search events
-        print("\n3. Testing search_events...")
-        search_results = await calendar.search_events("meeting", max_results=3)
-        print(f"   ✓ Found {len(search_results)} events matching 'meeting'")
-        
-        print("\n✓ Calendar integration tests passed!")
-    
-    except Exception as e:
-        print(f"\n❌ Calendar integration test failed: {e}")
-        logger.error(f"Calendar test error: {e}", exc_info=True)
-    
-    finally:
-        db.close()
-
-async def test_hubspot_integration():
-    """Test HubSpot API integration"""
-    print("\n" + "="*60)
-    print("TESTING HUBSPOT INTEGRATION")
-    print("="*60)
-    
-    db = SessionLocal()
-    
-    try:
-        # Get test user
-        user = db.query(User).filter(User.email == "test@example.com").first()
-        if not user or not user.hubspot_access_token:
-            print("❌ No user with HubSpot OAuth found")
-            print("   Please authenticate with HubSpot first")
-            return
-        
-        # Get token
-        token = await get_hubspot_token(user, db)
-        hubspot = HubSpotService(token)
-        
-        # Test 1: Get contacts
-        print("\n1. Testing get_contacts...")
-        result = await hubspot.get_contacts(limit=5)
-        contacts = result['contacts']
-        print(f"   ✓ Fetched {len(contacts)} contacts")
-        
-        for contact in contacts[:3]:
-            name = f"{contact.get('first_name', '')} {contact.get('last_name', '')}".strip()
-            print(f"   - {name} ({contact.get('email')})")
-        
-        if contacts:
-            test_contact = contacts[0]
-            contact_id = test_contact['hubspot_id']
-            
-            # Test 2: Get contact notes
-            print("\n2. Testing get_contact_notes...")
-            notes = await hubspot.get_contact_notes(contact_id)
-            print(f"   ✓ Found {len(notes)} notes for contact")
-            
-            # Test 3: Search contacts
-            print("\n3. Testing search_contacts...")
-            if test_contact.get('email'):
-                search_results = await hubspot.search_contacts(
-                    test_contact['email'],
-                    property_to_search="email"
-                )
-                print(f"   ✓ Found {len(search_results)} contacts")
-        
-        # Test
+    asyncio.run(run_all_tests())
