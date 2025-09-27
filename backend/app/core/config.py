@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str
+    REDIS_URL: str = "redis://localhost:6379"
     
     # Google OAuth
     GOOGLE_CLIENT_ID: str
@@ -34,15 +35,22 @@ class Settings(BaseSettings):
     
     # Frontend
     FRONTEND_URL: str
+    ALLOWED_ORIGINS: str = "http://localhost:5173"
     
     # Encryption for OAuth tokens
     ENCRYPTION_KEY: str
+
+    # Environment
+    ENVIRONMENT: str = "development" 
     
     # Security
-    ALLOWED_HOSTS: list = ["localhost", "127.0.0.1"]
+    @property
+    def ALLOWED_HOSTS(self) -> list:
+        return ["localhost", "127.0.0.1"]
     
     class Config:
         env_file = "../.env"
         case_sensitive = True
+        extra = "ignore"
 
 settings = Settings()
