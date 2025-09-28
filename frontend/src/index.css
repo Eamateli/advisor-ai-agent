@@ -1,0 +1,240 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Import Inter font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap');
+
+/* CSS Variables for theming */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 84% 4.9%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 94.1%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-secondary;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-foreground;
+  }
+  
+  /* Selection styling */
+  ::selection {
+    @apply bg-primary/20;
+  }
+  
+  /* Focus outline styling */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+  
+  /* Custom animations for message loading */
+  .typing-indicator {
+    @apply flex space-x-1;
+  }
+  
+  .typing-indicator div {
+    @apply w-2 h-2 bg-muted-foreground rounded-full;
+    animation: pulse-dot 1.4s infinite ease-in-out;
+  }
+  
+  .typing-indicator div:nth-child(1) {
+    animation-delay: -0.32s;
+  }
+  
+  .typing-indicator div:nth-child(2) {
+    animation-delay: -0.16s;
+  }
+  
+  /* Message fade-in effect */
+  .message-fade-in {
+    animation: fade-in 0.3s ease-out;
+  }
+  
+  /* Code block styling */
+  .code-block {
+    @apply relative bg-muted/50 rounded-lg border;
+  }
+  
+  .code-block pre {
+    @apply p-4 overflow-x-auto;
+  }
+  
+  .code-block code {
+    @apply text-sm font-mono;
+  }
+  
+  /* Syntax highlighting for code blocks */
+  .hljs {
+    @apply bg-transparent;
+  }
+  
+  /* Dark mode specific overrides */
+  .dark .hljs-keyword,
+  .dark .hljs-selector-tag,
+  .dark .hljs-literal,
+  .dark .hljs-section,
+  .dark .hljs-link {
+    @apply text-blue-400;
+  }
+  
+  .dark .hljs-string {
+    @apply text-green-400;
+  }
+  
+  .dark .hljs-comment {
+    @apply text-gray-500;
+  }
+  
+  .dark .hljs-number {
+    @apply text-orange-400;
+  }
+  
+  .dark .hljs-variable {
+    @apply text-purple-400;
+  }
+  
+  /* Light mode syntax highlighting */
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-literal,
+  .hljs-section,
+  .hljs-link {
+    @apply text-blue-600;
+  }
+  
+  .hljs-string {
+    @apply text-green-600;
+  }
+  
+  .hljs-comment {
+    @apply text-gray-500;
+  }
+  
+  .hljs-number {
+    @apply text-orange-600;
+  }
+  
+  .hljs-variable {
+    @apply text-purple-600;
+  }
+  
+  /* Auto-resizing textarea */
+  .auto-resize {
+    resize: none;
+    overflow: hidden;
+    min-height: 44px;
+    max-height: 200px;
+  }
+  
+  /* Custom button hover effects */
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors;
+  }
+  
+  .btn-ghost {
+    @apply hover:bg-accent hover:text-accent-foreground transition-colors;
+  }
+  
+  /* Meeting card styling */
+  .meeting-card {
+    @apply bg-card border rounded-lg p-4 hover:shadow-md transition-all duration-200;
+  }
+  
+  .meeting-card:hover {
+    @apply transform translate-y-[-1px] shadow-lg;
+  }
+  
+  /* Avatar ring for participants */
+  .avatar-ring {
+    @apply ring-2 ring-background ring-offset-1;
+  }
+  
+  /* Glass morphism effect for modals */
+  .glass-morphism {
+    @apply bg-background/80 backdrop-blur-sm border;
+  }
+  
+  /* Responsive text sizing */
+  .text-responsive {
+    @apply text-sm md:text-base;
+  }
+  
+  /* Loading skeleton animation */
+  .skeleton {
+    @apply bg-muted animate-pulse;
+  }
+  
+  /* Chat input focus ring */
+  .chat-input:focus {
+    @apply ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
+}
