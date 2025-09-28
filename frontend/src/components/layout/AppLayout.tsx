@@ -1,7 +1,7 @@
 // frontend/src/components/layout/AppLayout.tsx
 import React from 'react';
 import { cn } from '../../lib/utils';
-import { useUI } from '../../store/app';
+import { useUI, useAppStore } from '../../store/app';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 
@@ -11,6 +11,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const { sidebarOpen } = useUI();
+  const { setSidebarOpen } = useAppStore();
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -41,11 +42,7 @@ export function AppLayout({ children }: AppLayoutProps) {
       {sidebarOpen && (
         <div 
           className="fixed inset-0 z-40 bg-background/80 backdrop-blur-sm md:hidden"
-          onClick={() => {
-            // Close sidebar on mobile when clicking overlay
-            const { setSidebarOpen } = useUI();
-            setSidebarOpen(false);
-          }}
+          onClick={() => setSidebarOpen(false)}
         />
       )}
     </div>
