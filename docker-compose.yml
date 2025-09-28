@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with pgvector
+  postgres:
+    image: ankane/pgvector:latest
+    environment:
+      POSTGRES_DB: financial_advisor_agent
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching and rate limiting
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/financial_advisor_agent
+      REDIS_URL: redis://redis:6379
+      ENVIRONMENT: development
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery Worker (for background tasks)
+  celery-worker:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/financial_advisor_agent
+      REDIS_URL: redis://redis:6379
+      ENVIRONMENT: development
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.tasks.celery_app worker --loglevel=info -Q sync,agent,periodic
+
+  # Celery Beat (for periodic tasks)
+  celery-beat:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/financial_advisor_agent
+      REDIS_URL: redis://redis:6379
+      ENVIRONMENT: development
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.tasks.celery_app beat --loglevel=info
+
+  # Flower (Celery monitoring - optional)
+  flower:
+    build: ./backend
+    ports:
+      - "5555:5555"
+    environment:
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - redis
+    command: celery -A app.tasks.celery_app flower --port=5555
+
+  # Frontend (React)
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:8000/api/v1
+      REACT_APP_WS_URL: ws://localhost:8000/api/v1/chat/ws
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    command: npm start
+
+volumes:
+  postgres_data:
+  redis_data:
