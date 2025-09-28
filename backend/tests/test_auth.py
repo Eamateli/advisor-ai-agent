@@ -13,7 +13,7 @@ async def test_oauth_config():
     print("=" * 60)
     
     # Test Google OAuth
-    print("\n✓ Google OAuth Configuration:")
+    print("\nGoogle OAuth Configuration:")
     print(f"  Client ID: {settings.GOOGLE_CLIENT_ID[:20]}...")
     print(f"  Redirect URI: {settings.GOOGLE_REDIRECT_URI}")
     print(f"  Scopes: {len(settings.GOOGLE_SCOPES)} scopes configured")
@@ -24,7 +24,7 @@ async def test_oauth_config():
     print(f"\n  Sample Auth URL: {google_url[:80]}...")
     
     # Test HubSpot OAuth
-    print("\n✓ HubSpot OAuth Configuration:")
+    print("\nHubSpot OAuth Configuration:")
     print(f"  Client ID: {settings.HUBSPOT_CLIENT_ID[:20]}...")
     print(f"  Redirect URI: {settings.HUBSPOT_REDIRECT_URI}")
     print(f"  Scopes: {settings.HUBSPOT_SCOPES}")
@@ -34,25 +34,25 @@ async def test_oauth_config():
     print(f"\n  Sample Auth URL: {hubspot_url[:80]}...")
     
     # Test Encryption
-    print("\n✓ Token Encryption:")
+    print("\nToken Encryption:")
     from app.core.encryption import token_encryption
     test_token = "test_access_token_12345"
     encrypted = token_encryption.encrypt(test_token)
     decrypted = token_encryption.decrypt(encrypted)
-    print(f"  Encryption: {'✓ Working' if decrypted == test_token else '✗ Failed'}")
+    print(f"  Encryption: {'Working' if decrypted == test_token else 'Failed'}")
     
     # Test JWT
-    print("\n✓ JWT Token Generation:")
+    print("\nJWT Token Generation:")
     from app.core.security import create_access_token, verify_token
     token = create_access_token({"sub": 1})
     payload = verify_token(token)
-    print(f"  JWT: {'✓ Working' if payload.get('sub') == 1 else '✗ Failed'}")
+    print(f"  JWT: {'Working' if payload.get('sub') == '1' else 'Failed'}")
     
     print("\n" + "=" * 60)
-    print("✓ All OAuth configurations verified!")
+    print("All OAuth configurations verified!")
     print("=" * 60)
     
-    print("\n📋 Next Steps:")
+    print("\nNext Steps:")
     print("1. Start the backend: uvicorn app.main:app --reload")
     print("2. Visit: http://localhost:8000/docs")
     print("3. Test /auth/google/login endpoint")

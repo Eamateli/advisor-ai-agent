@@ -1,18 +1,18 @@
 from typing import List, Dict, Optional, AsyncGenerator
 import anthropic
-from anthropic.types import MessageStreamEvent
 from app.core.config import settings
 import logging
 import json
+import re
 
 logger = logging.getLogger(__name__)
 
 class ClaudeService:
-    """Claude AI integration with streaming and tool calling"""
+    """Claude AI integration with simulated tool calling through prompting"""
     
     def __init__(self):
         self.client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        self.model = "claude-sonnet-4-20250514"
+        self.model = "claude-3-sonnet-20240229"
         self.max_tokens = 4096
     
     async def chat_stream(
@@ -22,81 +22,41 @@ class ClaudeService:
         tools: Optional[List[Dict]] = None,
         temperature: float = 0.7
     ) -> AsyncGenerator[Dict, None]:
-        """
-        Stream chat responses from Claude
-        
-        Yields events like:
-        - {"type": "content", "text": "..."}
-        - {"type": "tool_use", "tool": {...}}
-        - {"type": "done"}
-        """
+        """Stream chat responses from Claude with simulated tool support"""
         try:
-            # Prepare messages (convert to Anthropic format)
             formatted_messages = self._format_messages(messages)
             
-            # Create stream
-            stream_kwargs = {
-                "model": self.model,
-                "max_tokens": self.max_tokens,
-                "messages": formatted_messages,
-                "system": system_prompt,
-                "temperature": temperature,
-            }
-            
+            # If tools are provided, add them to the system prompt
             if tools:
-                stream_kwargs["tools"] = tools
+                tools_prompt = self._create_tools_prompt(tools)
+                enhanced_system = f"{system_prompt}\n\n{tools_prompt}"
+            else:
+                enhanced_system = system_prompt
             
-            # Stream response
-            async with self.client.messages.stream(**stream_kwargs) as stream:
-                async for event in stream:
-                    # Parse different event types
-                    if event.type == "content_block_start":
-                        block = event.content_block
-                        if block.type == "text":
-                            yield {"type": "content_start"}
-                        elif block.type == "tool_use":
-                            yield {
-                                "type": "tool_use_start",
-                                "tool_use_id": block.id,
-                                "tool_name": block.name
-                            }
-                    
-                    elif event.type == "content_block_delta":
-                        delta = event.delta
-                        if delta.type == "text_delta":
-                            yield {
-                                "type": "content",
-                                "text": delta.text
-                            }
-                        elif delta.type == "input_json_delta":
-                            yield {
-                                "type": "tool_input",
-                                "partial_json": delta.partial_json
-                            }
-                    
-                    elif event.type == "content_block_stop":
-                        yield {"type": "content_block_stop"}
-                    
-                    elif event.type == "message_stop":
-                        # Get final message
-                        final_message = await stream.get_final_message()
-                        
-                        # Extract tool uses
-                        tool_uses = []
-                        for block in final_message.content:
-                            if block.type == "tool_use":
-                                tool_uses.append({
-                                    "id": block.id,
-                                    "name": block.name,
-                                    "input": block.input
-                                })
-                        
+            # Stream the response
+            with self.client.messages.stream(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                messages=formatted_messages,
+                system=enhanced_system,
+                temperature=temperature
+            ) as stream:
+                full_response = ""
+                for event in stream:
+                    if event.type == 'content_block_delta':
+                        if hasattr(event.delta, 'text'):
+                            text = event.delta.text
+                            full_response += text
+                            yield {"type": "content", "text": text}
+                    elif event.type == 'message_stop':
+                        # Parse for tool calls in the response
+                        tool_uses = self._extract_tool_calls(full_response)
                         yield {
                             "type": "done",
-                            "stop_reason": final_message.stop_reason,
+                            "stop_reason": "end_turn",
                             "tool_uses": tool_uses
                         }
-            
+        
         except Exception as e:
             logger.error(f"Error in Claude stream: {e}")
             yield {"type": "error", "error": str(e)}
@@ -108,46 +68,82 @@ class ClaudeService:
         tools: Optional[List[Dict]] = None,
         temperature: float = 0.7
     ) -> Dict:
-        """Non-streaming chat (for background tasks)"""
+        """Non-streaming chat with simulated tool support"""
         try:
             formatted_messages = self._format_messages(messages)
             
-            response_kwargs = {
-                "model": self.model,
-                "max_tokens": self.max_tokens,
-                "messages": formatted_messages,
-                "system": system_prompt,
-                "temperature": temperature,
-            }
-            
+            # If tools are provided, add them to the system prompt
             if tools:
-                response_kwargs["tools"] = tools
+                tools_prompt = self._create_tools_prompt(tools)
+                enhanced_system = f"{system_prompt}\n\n{tools_prompt}"
+            else:
+                enhanced_system = system_prompt
             
-            response = self.client.messages.create(**response_kwargs)
+            response = self.client.messages.create(
+                model=self.model,
+                max_tokens=self.max_tokens,
+                messages=formatted_messages,
+                system=enhanced_system,
+                temperature=temperature
+            )
             
-            # Extract text and tool uses
             text_content = ""
-            tool_uses = []
-            
             for block in response.content:
-                if block.type == "text":
+                if hasattr(block, 'text'):
                     text_content += block.text
-                elif block.type == "tool_use":
-                    tool_uses.append({
-                        "id": block.id,
-                        "name": block.name,
-                        "input": block.input
-                    })
+            
+            # Parse for tool calls
+            tool_uses = self._extract_tool_calls(text_content)
             
             return {
                 "text": text_content,
                 "tool_uses": tool_uses,
-                "stop_reason": response.stop_reason
+                "stop_reason": response.stop_reason if hasattr(response, 'stop_reason') else None
             }
         
         except Exception as e:
             logger.error(f"Error in Claude chat: {e}")
             raise
+    
+    def _create_tools_prompt(self, tools: List[Dict]) -> str:
+        """Create a prompt that instructs Claude to use tools"""
+        tools_desc = "You have access to the following tools:\n\n"
+        
+        for tool in tools:
+            tools_desc += f"Tool: {tool['name']}\n"
+            tools_desc += f"Description: {tool['description']}\n"
+            tools_desc += f"Parameters: {json.dumps(tool.get('input_schema', {}).get('properties', {}), indent=2)}\n\n"
+        
+        tools_desc += """
+When you need to use a tool, respond with:
+<tool_use>
+{"name": "tool_name", "input": {parameters}}
+</tool_use>
+
+Then continue with your response or wait for the tool result.
+"""
+        return tools_desc
+    
+    def _extract_tool_calls(self, text: str) -> List[Dict]:
+        """Extract tool calls from the response text"""
+        tool_uses = []
+        
+        # Find all tool_use blocks
+        pattern = r'<tool_use>\s*(.*?)\s*</tool_use>'
+        matches = re.findall(pattern, text, re.DOTALL)
+        
+        for match in matches:
+            try:
+                tool_data = json.loads(match)
+                tool_uses.append({
+                    "id": f"tool_{len(tool_uses)}",
+                    "name": tool_data.get("name"),
+                    "input": tool_data.get("input", {})
+                })
+            except json.JSONDecodeError:
+                logger.warning(f"Failed to parse tool use: {match}")
+        
+        return tool_uses
     
     def _format_messages(self, messages: List[Dict]) -> List[Dict]:
         """Format messages for Claude API"""
@@ -156,29 +152,35 @@ class ClaudeService:
         for msg in messages:
             role = msg.get("role")
             
-            # Handle different content formats
+            # Skip system messages (they go in the system parameter)
+            if role == "system":
+                continue
+            
             if "content" in msg:
                 content = msg["content"]
                 
-                # If content is a string, keep it simple
+                # Handle string content
                 if isinstance(content, str):
                     formatted.append({
                         "role": role,
                         "content": content
                     })
-                # If content is already list format (with tool results), use as-is
+                # Handle list content (tool results, etc.)
                 elif isinstance(content, list):
-                    formatted.append({
-                        "role": role,
-                        "content": content
-                    })
-            
-            # Handle tool results
-            elif "tool_results" in msg:
-                formatted.append({
-                    "role": "user",
-                    "content": msg["tool_results"]
-                })
+                    # Convert to string representation for now
+                    text_parts = []
+                    for item in content:
+                        if isinstance(item, dict):
+                            if item.get("type") == "text":
+                                text_parts.append(item.get("text", ""))
+                            elif item.get("type") == "tool_result":
+                                text_parts.append(f"Tool result: {item.get('content', '')}")
+                    
+                    if text_parts:
+                        formatted.append({
+                            "role": role,
+                            "content": "\n".join(text_parts)
+                        })
         
         return formatted
     
@@ -190,13 +192,7 @@ class ClaudeService:
         """Create a tool result message for Claude"""
         return {
             "role": "user",
-            "content": [
-                {
-                    "type": "tool_result",
-                    "tool_use_id": tool_use_id,
-                    "content": json.dumps(result)
-                }
-            ]
+            "content": f"Tool result for {tool_use_id}: {json.dumps(result)}"
         }
 
 claude_service = ClaudeService()

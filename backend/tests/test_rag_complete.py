@@ -3,11 +3,19 @@ Complete RAG pipeline test
 Run: python test_rag_complete.py
 """
 from dotenv import load_dotenv
+from app.models.user import User
+from app.models.document import Document
+from app.models.email import Email
+from app.models.hubspot import HubSpotContact, HubSpotNote
+from app.models.chat import ChatMessage
+from app.models.task import Task, Instruction
+from app.models.consent import UserConsent
 load_dotenv()  # Load environment variables
 
 import asyncio
 from app.core.database import SessionLocal
 from app.models.user import User
+from app.models.consent import UserConsent
 from app.models.email import Email
 from app.models.hubspot import HubSpotContact, HubSpotNote
 from app.models.document import Document

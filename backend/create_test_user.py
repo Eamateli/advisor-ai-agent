@@ -11,6 +11,7 @@ from app.models.email import Email
 from app.models.hubspot import HubSpotContact, HubSpotNote
 from app.models.chat import ChatMessage
 from app.models.task import Task, Instruction
+from app.models.consent import UserConsent
 
 def create_test_user():
     db = SessionLocal()
@@ -20,7 +21,7 @@ def create_test_user():
         existing_user = db.query(User).filter(User.email == "test@example.com").first()
         
         if existing_user:
-            print(f"✓ User already exists: ID={existing_user.id}, Email={existing_user.email}")
+            print(f" User already exists: ID={existing_user.id}, Email={existing_user.email}")
             return existing_user.id
         else:
             user = User(
@@ -31,7 +32,7 @@ def create_test_user():
             db.add(user)
             db.commit()
             db.refresh(user)
-            print(f"✓ Created user: ID={user.id}, Email={user.email}")
+            print(f" Created user: ID={user.id}, Email={user.email}")
             return user.id
     
     except Exception as e:

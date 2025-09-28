@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class FinancialAdvisorAgent:
     """Main AI Agent orchestrator"""
     
-    def __init__(self, db: Session, user: User):
+    def __init__(self, db: Session, user: User, request=None):
         self.db = db
         self.user = user
         self.request = request

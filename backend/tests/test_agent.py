@@ -6,6 +6,12 @@ import asyncio
 from app.core.database import SessionLocal
 from app.models.user import User
 from app.agents.agent import create_agent
+from app.models.document import Document
+from app.models.email import Email
+from app.models.hubspot import HubSpotContact, HubSpotNote
+from app.models.chat import ChatMessage
+from app.models.task import Task, Instruction
+from app.models.consent import UserConsent
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -22,13 +28,13 @@ async def test_basic_chat():
     try:
         user = db.query(User).filter(User.email == "test@example.com").first()
         if not user:
-            print("❌ No test user found. Run create_test_user.py first")
+            print(" No test user found. Run create_test_user.py first")
             return
         
         agent = create_agent(db, user)
         
-        print("\n📤 User: Hello! What can you help me with?")
-        print("🤖 Assistant: ", end="", flush=True)
+        print("\n User: Hello! What can you help me with?")
+        print(" Assistant: ", end="", flush=True)
         
         async for event in agent.chat_stream("Hello! What can you help me with?"):
             if event["type"] == "content":
@@ -37,10 +43,10 @@ async def test_basic_chat():
                 print("\n")
                 break
         
-        print("✅ Basic chat test passed!")
+        print(" Basic chat test passed!")
     
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f" Test failed: {e}")
         logger.error(f"Error: {e}", exc_info=True)
     
     finally:
@@ -57,11 +63,11 @@ async def test_rag_search():
     try:
         user = db.query(User).filter(User.email == "test@example.com").first()
         if not user:
-            print("❌ No test user found")
+            print(" No test user found")
             return
         
         # First, add some test data
-        print("\n📥 Adding test email...")
+        print("\n Adding test email...")
         from app.models.email import Email
         from app.services.rag_pipeline import rag_pipeline
         from datetime import datetime, timezone
@@ -90,13 +96,13 @@ async def test_rag_search():
         
         # Process for RAG
         await rag_pipeline.process_email(db, user.id, test_email)
-        print("✅ Test email added and processed")
+        print(" Test email added and processed")
         
         # Now test the agent
         agent = create_agent(db, user)
         
-        print("\n📤 User: Who mentioned their kid plays baseball?")
-        print("🤖 Assistant: ", end="", flush=True)
+        print("\n User: Who mentioned their kid plays baseball?")
+        print(" Assistant: ", end="", flush=True)
         
         async for event in agent.chat_stream("Who mentioned their kid plays baseball?"):
             if event["type"] == "content":
@@ -109,7 +115,7 @@ async def test_rag_search():
                 print("\n")
                 break
         
-        print("✅ RAG search test passed!")
+        print(" RAG search test passed!")
         
         # Cleanup
         db.delete(test_email)
@@ -118,7 +124,7 @@ async def test_rag_search():
         db.commit()
     
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f" Test failed: {e}")
         logger.error(f"Error: {e}", exc_info=True)
     
     finally:
@@ -135,13 +141,13 @@ async def test_task_creation():
     try:
         user = db.query(User).filter(User.email == "test@example.com").first()
         if not user:
-            print("❌ No test user found")
+            print(" No test user found")
             return
         
         agent = create_agent(db, user)
         
-        print("\n📤 User: Create a task to follow up with John next week")
-        print("🤖 Assistant: ", end="", flush=True)
+        print("\n User: Create a task to follow up with John next week")
+        print(" Assistant: ", end="", flush=True)
         
         async for event in agent.chat_stream("Create a task to follow up with John next week about his portfolio review"):
             if event["type"] == "content":
@@ -159,7 +165,7 @@ async def test_task_creation():
         tasks = db.query(Task).filter(Task.user_id == user.id).all()
         
         if tasks:
-            print(f"✅ Task creation test passed! Found {len(tasks)} task(s)")
+            print(f" Task creation test passed! Found {len(tasks)} task(s)")
             
             # Cleanup
             for task in tasks:
@@ -169,7 +175,7 @@ async def test_task_creation():
             print("⚠️ No tasks were created")
     
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f" Test failed: {e}")
         logger.error(f"Error: {e}", exc_info=True)
     
     finally:
@@ -186,13 +192,13 @@ async def test_ongoing_instruction():
     try:
         user = db.query(User).filter(User.email == "test@example.com").first()
         if not user:
-            print("❌ No test user found")
+            print(" No test user found")
             return
         
         agent = create_agent(db, user)
         
-        print("\n📤 User: When someone new emails me, always create a HubSpot contact")
-        print("🤖 Assistant: ", end="", flush=True)
+        print("\n User: When someone new emails me, always create a HubSpot contact")
+        print(" Assistant: ", end="", flush=True)
         
         async for event in agent.chat_stream("When someone new emails me that's not in HubSpot, please create a contact for them"):
             if event["type"] == "content":
@@ -210,8 +216,8 @@ async def test_ongoing_instruction():
         instructions = db.query(Instruction).filter(Instruction.user_id == user.id).all()
         
         if instructions:
-            print(f"✅ Instruction test passed! Found {len(instructions)} instruction(s)")
-            print(f"   📝 Instruction: {instructions[0].instruction}")
+            print(f" Instruction test passed! Found {len(instructions)} instruction(s)")
+            print(f"    Instruction: {instructions[0].instruction}")
             
             # Cleanup
             for inst in instructions:
@@ -221,7 +227,7 @@ async def test_ongoing_instruction():
             print("⚠️ No instructions were saved")
     
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f" Test failed: {e}")
         logger.error(f"Error: {e}", exc_info=True)
     
     finally:
@@ -238,14 +244,14 @@ async def test_multi_turn_conversation():
     try:
         user = db.query(User).filter(User.email == "test@example.com").first()
         if not user:
-            print("❌ No test user found")
+            print(" No test user found")
             return
         
         agent = create_agent(db, user)
         
         # First turn
-        print("\n📤 User: My name is Sarah and I love tennis")
-        print("🤖 Assistant: ", end="", flush=True)
+        print("\n User: My name is Sarah and I love tennis")
+        print(" Assistant: ", end="", flush=True)
         
         async for event in agent.chat_stream("My name is Sarah and I love tennis"):
             if event["type"] == "content":
@@ -255,8 +261,8 @@ async def test_multi_turn_conversation():
                 break
         
         # Second turn - test if agent remembers
-        print("\n📤 User: What sport did I say I love?")
-        print("🤖 Assistant: ", end="", flush=True)
+        print("\n User: What sport did I say I love?")
+        print(" Assistant: ", end="", flush=True)
         
         response_text = ""
         async for event in agent.chat_stream("What sport did I say I love?"):
@@ -269,12 +275,12 @@ async def test_multi_turn_conversation():
                 break
         
         if "tennis" in response_text.lower():
-            print("✅ Multi-turn conversation test passed! Agent remembered context")
+            print(" Multi-turn conversation test passed! Agent remembered context")
         else:
             print("⚠️ Agent may not have remembered the context correctly")
     
     except Exception as e:
-        print(f"❌ Test failed: {e}")
+        print(f" Test failed: {e}")
         logger.error(f"Error: {e}", exc_info=True)
     
     finally:
@@ -304,7 +310,7 @@ async def run_all_tests():
     print("ALL AGENT TESTS COMPLETE")
     print("="*60)
     
-    print("\n✅ Agent is ready to use!")
+    print("\n Agent is ready to use!")
     print("\nNext steps:")
     print("   1. Test the streaming endpoint: POST /chat/stream")
     print("   2. Integrate with frontend")
