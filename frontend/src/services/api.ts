@@ -106,20 +106,17 @@ class ApiClient {
   }
 
   // Stream method for Server-Sent Events
-  async stream(url: string, config?: AxiosRequestConfig): Promise<ReadableStream> {
+  async stream(url: string, data?: any): Promise<ReadableStream> {
     const authStore = useAuthStore.getState();
     const headers = {
-      ...config?.headers,
+      'Content-Type': 'application/json',
       ...(authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}),
     };
 
     const response = await fetch(`${config.API_URL}${url}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers,
-      },
-      body: JSON.stringify(config?.data || {}),
+      headers,
+      body: JSON.stringify(data || {}),
     });
 
     if (!response.ok) {
