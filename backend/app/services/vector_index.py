@@ -40,7 +40,7 @@ def create_vector_indexes(db: Session):
         # GIN index for metadata JSON queries
         db.execute(text("""
             CREATE INDEX IF NOT EXISTS idx_documents_metadata 
-            ON documents USING gin(metadata);
+            ON documents USING gin(doc_metadata);
         """))
         
         db.commit()
