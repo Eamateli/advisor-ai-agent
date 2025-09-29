@@ -8,6 +8,8 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// ========== DATE & TIME FORMATTING ==========
+
 // Format dates for display
 export function formatDate(date: string | Date, options?: { relative?: boolean; includeTime?: boolean }) {
   const dateObj = typeof date === 'string' ? parseISO(date) : date;
@@ -26,7 +28,7 @@ export function formatDate(date: string | Date, options?: { relative?: boolean; 
   return format(dateObj, formatString);
 }
 
-// Format time for meetings
+// Format time for meetings (e.g., "2:30pm")
 export function formatTime(date: string | Date) {
   const dateObj = typeof date === 'string' ? parseISO(date) : date;
   return format(dateObj, 'h:mm a');
@@ -43,6 +45,27 @@ export function formatTimeRange(startTime: string, endTime: string) {
   
   return `${format(start, 'MMM d')} ${formatTime(start)} – ${formatTime(end)}`;
 }
+
+// Format relative time (e.g., "2 minutes ago", "yesterday")
+export function formatRelativeTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffSecs = Math.floor(diffMs / 1000);
+  const diffMins = Math.floor(diffSecs / 60);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSecs < 60) return 'just now';
+  if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+  if (diffDays === 1) return 'yesterday';
+  if (diffDays < 7) return `${diffDays} days ago`;
+  
+  return formatDate(d);
+}
+
+// ========== PERFORMANCE UTILITIES ==========
 
 // Debounce function for search and input handling
 export function debounce<T extends (...args: any[]) => any>(
@@ -72,6 +95,8 @@ export function throttle<T extends (...args: any[]) => any>(
     }
   };
 }
+
+// ========== STRING UTILITIES ==========
 
 // Generate random ID for messages
 export function generateId(): string {
@@ -111,6 +136,15 @@ export function isValidEmail(email: string): boolean {
   return emailRegex.test(email);
 }
 
+// Sanitize HTML to prevent XSS
+export function sanitizeHtml(html: string): string {
+  const div = document.createElement('div');
+  div.textContent = html;
+  return div.innerHTML;
+}
+
+// ========== CLIPBOARD ==========
+
 // Copy text to clipboard
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
@@ -138,12 +172,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-// Sanitize HTML to prevent XSS
-export function sanitizeHtml(html: string): string {
-  const div = document.createElement('div');
-  div.textContent = html;
-  return div.innerHTML;
-}
+// ========== ERROR HANDLING ==========
 
 // Parse error messages from API responses
 export function parseErrorMessage(error: any): string {
@@ -163,6 +192,8 @@ export function parseErrorMessage(error: any): string {
   
   return 'An unexpected error occurred';
 }
+
+// ========== DOM UTILITIES ==========
 
 // Auto-resize textarea
 export function autoResizeTextarea(textarea: HTMLTextAreaElement) {
@@ -188,6 +219,8 @@ export function isInViewport(element: HTMLElement): boolean {
     rect.right <= (window.innerWidth || document.documentElement.clientWidth)
   );
 }
+
+// ========== STORAGE ==========
 
 // Local storage helpers with error handling
 export const storage = {
@@ -232,7 +265,9 @@ export const storage = {
   }
 };
 
-// URL helpers
+// ========== URL UTILITIES ==========
+
+// Build URL with query parameters
 export function buildUrl(base: string, params: Record<string, any> = {}): string {
   const url = new URL(base);
   Object.entries(params).forEach(([key, value]) => {
@@ -242,6 +277,8 @@ export function buildUrl(base: string, params: Record<string, any> = {}): string
   });
   return url.toString();
 }
+
+// ========== COLOR UTILITIES ==========
 
 // Color utilities for avatar backgrounds
 export function getAvatarColor(id: string | number): string {
