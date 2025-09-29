@@ -36,6 +36,50 @@ async def get_profile(user: User = Depends(get_current_user)):
         created_at=user.created_at.isoformat()
     )
 
+@router.post("/disconnect/google")
+async def disconnect_google(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Disconnect Google account"""
+    if not user.google_access_token:
+        raise HTTPException(
+            status_code=400,
+            detail="Google account not connected"
+        )
+    
+    # Clear Google tokens and related data
+    user.google_id = None
+    user.google_access_token = None
+    user.google_refresh_token = None
+    user.google_token_expiry = None
+    
+    db.commit()
+    
+    return {"message": "Google account disconnected successfully"}
+
+@router.post("/disconnect/hubspot")
+async def disconnect_hubspot(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Disconnect HubSpot account"""
+    if not user.hubspot_access_token:
+        raise HTTPException(
+            status_code=400,
+            detail="HubSpot account not connected"
+        )
+    
+    # Clear HubSpot tokens and related data
+    user.hubspot_access_token = None
+    user.hubspot_refresh_token = None
+    user.hubspot_token_expiry = None
+    user.hubspot_portal_id = None
+    
+    db.commit()
+    
+    return {"message": "HubSpot account disconnected successfully"}
+
 @router.patch("/", response_model=ProfileResponse)
 async def update_profile(
     profile_data: ProfileUpdate,
