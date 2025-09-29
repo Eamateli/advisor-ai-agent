@@ -6,6 +6,7 @@ import { ThemeProvider } from './lib/theme';
 import { useAuthStore } from './store/auth';
 import { useAppStore } from './store/app';
 import { wsService } from './services/websocket';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Layout components
 import { AppLayout } from './components/layout/AppLayout';
@@ -30,6 +31,18 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
   
   return <>{children}</>;
+}
+
+// Loading fallback component
+function PageLoader() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="text-center">
+        <LoadingSpinner size="lg" className="mx-auto mb-4" />
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  );
 }
 
 function App() {
@@ -57,8 +70,11 @@ function App() {
   useEffect(() => {
     if (isAuthenticated) {
       try {
-        wsService.connect();
-        setWebSocketStatus(true);
+        const token = localStorage.getItem('access_token');
+        if (token) {
+          wsService.connect(token);
+          setWebSocketStatus(true);
+        }
       } catch (error) {
         console.error('Failed to connect WebSocket:', error);
         setWebSocketStatus(false);
@@ -76,95 +92,91 @@ function App() {
   }, [isAuthenticated, setWebSocketStatus]);
 
   return (
-    <ThemeProvider>
-      <Router>
-        <Suspense
-          fallback={
-            <div className="flex items-center justify-center h-screen bg-background">
-              <div className="text-center">
-                <LoadingSpinner size="lg" />
-                <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
-              </div>
-            </div>
-          }
-        >
-          <Routes>
-            {/* Public routes */}
-            <Route path="/login" element={<LoginPage />} />
+    <ErrorBoundary>
+      <ThemeProvider>
+        <Router>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              {/* Public routes */}
+              <Route path="/login" element={<LoginPage />} />
 
-            {/* Protected routes */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <AppLayout>
-                    <ChatPage />
-                  </AppLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <AppLayout>
-                    <SettingsPage />
-                  </AppLayout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/profile"
-              element={
-                <ProtectedRoute>
-                  <AppLayout>
-                    <ProfilePage />
-                  </AppLayout>
-                </ProtectedRoute>
-              }
-            />
+              {/* Protected routes */}
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <ChatPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <SettingsPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <ProfilePage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* OAuth callback routes */}
-            <Route
-              path="/auth/google/callback"
-              element={<LoginPage />}
-            />
-            <Route
-              path="/auth/hubspot/callback"
-              element={<LoginPage />}
-            />
+              {/* OAuth callback routes */}
+              <Route path="/auth/google/callback" element={<LoginPage />} />
+              <Route path="/auth/hubspot/callback" element={<LoginPage />} />
 
-            {/* Catch all - redirect to home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
+              {/* Catch all - redirect to home or login */}
+              <Route
+                path="*"
+                element={
+                  isAuthenticated ? (
+                    <Navigate to="/" replace />
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
+              />
+            </Routes>
+          </Suspense>
 
-        {/* Global toast notifications */}
-        <Toaster
-          position="top-right"
-          toastOptions={{
-            duration: 4000,
-            style: {
-              background: 'var(--background)',
-              color: 'var(--foreground)',
-              border: '1px solid var(--border)',
-            },
-            success: {
-              iconTheme: {
-                primary: 'var(--primary)',
-                secondary: 'var(--primary-foreground)',
+          {/* Global toast notifications */}
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 3000,
+              style: {
+                background: 'var(--background)',
+                color: 'var(--foreground)',
+                border: '1px solid var(--border)',
               },
-            },
-            error: {
-              iconTheme: {
-                primary: 'var(--destructive)',
-                secondary: 'var(--destructive-foreground)',
+              success: {
+                iconTheme: {
+                  primary: 'var(--primary)',
+                  secondary: 'var(--primary-foreground)',
+                },
               },
-            },
-          }}
-        />
-      </Router>
-    </ThemeProvider>
+              error: {
+                iconTheme: {
+                  primary: 'var(--destructive)',
+                  secondary: 'var(--destructive-foreground)',
+                },
+              },
+            }}
+          />
+        </Router>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 
