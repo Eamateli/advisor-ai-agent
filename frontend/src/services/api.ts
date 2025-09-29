@@ -168,8 +168,10 @@ export const chatApi = {
 };
 
 export const profileApi = {
-  get: () => api.get(endpoints.profile),
-  update: (data: any) => api.patch(endpoints.profile, data),
+  get: () => api.get('/profile'),
+  update: (data: any) => api.patch('/profile', data),
+  disconnectGoogle: () => api.post('/profile/disconnect/google'),
+  disconnectHubspot: () => api.post('/profile/disconnect/hubspot'),
 };
 
 export const syncApi = {
