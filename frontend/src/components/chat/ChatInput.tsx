@@ -12,7 +12,8 @@ import {
   StopIcon,
   PlusIcon,
   MicrophoneIcon,
-  PaperClipIcon 
+  FaceSmileIcon,
+  CalendarIcon
 } from '@heroicons/react/24/outline';
 
 const chatSchema = z.object({
@@ -118,21 +119,27 @@ export function ChatInput({
     <div className={cn('w-full max-w-4xl mx-auto', className)}>
       <form onSubmit={handleSubmit(onSubmit)} className="relative">
         {/* Main input container */}
-        <div className="relative flex items-end gap-2 p-4 bg-background border border-input rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
-          {/* Add attachment button */}
+        <div className={cn(
+          'relative flex items-end gap-2 p-3 rounded-2xl',
+          'bg-background border-2 border-border',
+          'focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10',
+          'transition-all duration-200 shadow-sm',
+          isDisabled && 'opacity-60'
+        )}>
+          {/* Add context button */}
           <Button
             type="button"
             variant="ghost"
             size="icon"
-            className="flex-shrink-0 w-8 h-8 rounded-full"
+            className="flex-shrink-0 w-9 h-9 rounded-full"
             disabled={isDisabled}
-            title="Add attachment (coming soon)"
+            title="Add context"
           >
-            <PlusIcon className="w-4 h-4" />
+            <PlusIcon className="w-5 h-5" />
           </Button>
 
           {/* Message textarea */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 relative">
             <textarea
               {...register('message')}
               ref={textareaRef}
@@ -141,17 +148,19 @@ export function ChatInput({
               disabled={isDisabled}
               onKeyDown={handleKeyDown}
               className={cn(
-                'w-full resize-none border-0 bg-transparent text-sm placeholder:text-muted-foreground focus:outline-none auto-resize',
+                'w-full resize-none border-0 bg-transparent',
+                'text-sm text-foreground placeholder:text-muted-foreground',
+                'focus:outline-none auto-resize',
                 'disabled:cursor-not-allowed disabled:opacity-50',
+                'min-h-[24px] max-h-[200px] py-0.5',
                 errors.message && 'text-destructive'
               )}
-              style={{ minHeight: '20px', maxHeight: '200px' }}
             />
             
-            {/* Character count */}
+            {/* Character count (only show when approaching limit) */}
             {showCharCount && (
               <div className={cn(
-                'text-xs mt-1',
+                'absolute -top-6 right-0 text-xs',
                 charCount > constants.MAX_MESSAGE_LENGTH 
                   ? 'text-destructive' 
                   : 'text-muted-foreground'
@@ -161,59 +170,87 @@ export function ChatInput({
             )}
           </div>
 
-          {/* Action buttons */}
-          <div className="flex items-center gap-1 flex-shrink-0">
-            {/* Voice input button (future feature) */}
+          {/* Context selector button */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="flex-shrink-0 text-xs px-3 h-9 hidden sm:flex"
+            disabled={isDisabled}
+            title="Select context"
+          >
+            <CalendarIcon className="w-4 h-4 mr-1" />
+            <span className="hidden md:inline">All meetings</span>
+          </Button>
+
+          {/* Emoji/Reactions button (future feature) */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="w-9 h-9 rounded-full flex-shrink-0 hidden sm:flex"
+            disabled={true}
+            title="Add reaction (coming soon)"
+          >
+            <FaceSmileIcon className="w-5 h-5" />
+          </Button>
+
+          {/* Voice input button (future feature) */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="w-9 h-9 rounded-full flex-shrink-0"
+            disabled={true}
+            title="Voice input (coming soon)"
+          >
+            <MicrophoneIcon className="w-5 h-5" />
+          </Button>
+
+          {/* Send or Stop button */}
+          {isStreaming ? (
             <Button
               type="button"
-              variant="ghost"
+              variant="destructive"
               size="icon"
-              className="w-8 h-8 rounded-full"
-              disabled={true}
-              title="Voice input (coming soon)"
+              onClick={handleStop}
+              className="w-9 h-9 rounded-full flex-shrink-0"
+              title="Stop generation"
             >
-              <MicrophoneIcon className="w-4 h-4" />
+              <StopIcon className="w-5 h-5" />
             </Button>
-
-            {/* Send or Stop button */}
-            {isStreaming ? (
-              <Button
-                type="button"
-                variant="destructive"
-                size="icon"
-                onClick={handleStop}
-                className="w-8 h-8 rounded-full"
-                title="Stop generation"
-              >
-                <StopIcon className="w-4 h-4" />
-              </Button>
-            ) : (
-              <Button
-                type="submit"
-                size="icon"
-                disabled={!isValid || isDisabled || !messageValue.trim()}
-                className="w-8 h-8 rounded-full"
-                title="Send message"
-              >
-                <PaperAirplaneIcon className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
+          ) : (
+            <Button
+              type="submit"
+              size="icon"
+              disabled={!isValid || isDisabled || !messageValue.trim()}
+              className={cn(
+                'w-9 h-9 rounded-full flex-shrink-0',
+                (isValid && messageValue.trim() && !isDisabled)
+                  ? 'bg-primary hover:bg-primary/90' 
+                  : 'bg-muted cursor-not-allowed'
+              )}
+              title="Send message"
+            >
+              <PaperAirplaneIcon className="w-5 h-5" />
+            </Button>
+          )}
         </div>
 
         {/* Error message */}
         {errors.message && (
-          <div className="mt-2 text-sm text-destructive px-4">
+          <div className="mt-2 text-sm text-destructive px-3">
             {errors.message.message}
           </div>
         )}
       </form>
 
-      {/* Quick actions or suggestions could go here */}
-      <div className="mt-3 flex items-center justify-center">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>Press Enter to send, Shift+Enter for new line</span>
-        </div>
+      {/* Helper text */}
+      <div className="mt-2 px-3 text-center">
+        <span className="text-xs text-muted-foreground">
+          Press <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border border-border">Enter</kbd> to send, 
+          <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border border-border ml-1">Shift + Enter</kbd> for new line
+        </span>
       </div>
     </div>
   );
