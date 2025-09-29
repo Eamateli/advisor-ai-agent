@@ -184,3 +184,22 @@ export interface Config {
   ENVIRONMENT: 'development' | 'production';
   GOOGLE_CLIENT_ID?: string;
 }
+
+
+// ========== Additional Types  ==========
+
+export interface Attendee {
+  name: string;
+  email: string;
+  avatar?: string;
+  responseStatus?: 'accepted' | 'declined' | 'tentative' | 'needsAction';
+  isOrganizer?: boolean;
+}
+
+export interface ContextFilter {
+  label: string;
+  startDate?: string;
+  endDate?: string;
+  attendees?: string[];
+  keywords?: string[];
+}
