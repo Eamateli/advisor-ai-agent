@@ -20,14 +20,8 @@ from app.core.exceptions import (
     external_api_exception_handler
 )
 
-# Import all routers - profile router is new, others exist
-from app.api import auth, rag, sync, webhooks, chat
-# Only import profile if it exists
-try:
-    from app.api import profile
-    HAS_PROFILE_ROUTER = True
-except ImportError:
-    HAS_PROFILE_ROUTER = False
+# Import all routers
+from app.api import auth, rag, sync, webhooks, chat, profile
 
 import logging
 
@@ -125,10 +119,7 @@ app.include_router(chat.router, prefix="/api/v1")
 app.include_router(rag.router, prefix="/api/v1")
 app.include_router(sync.router, prefix="/api/v1")
 app.include_router(webhooks.router, prefix="/api/v1")
-
-# Include profile router if it exists
-if HAS_PROFILE_ROUTER:
-    app.include_router(profile.router, prefix="/api/v1")
+app.include_router(profile.router, prefix="/api/v1")
 
 # Root endpoints
 @app.get("/")
