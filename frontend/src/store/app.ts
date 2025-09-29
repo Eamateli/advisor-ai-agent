@@ -166,7 +166,7 @@ export const useAppStore = create<AppStore>()(
   )
 );
 
-// ✅ FIXED: Simple direct selectors - no object creation
+//  Simple direct selectors - no object creation
 export const useSidebarOpen = () => useAppStore((state) => state.sidebarOpen);
 export const useSettingsOpen = () => useAppStore((state) => state.settingsOpen);
 export const useSettings = () => useAppStore((state) => state.settings);
@@ -175,5 +175,5 @@ export const useIsOnline = () => useAppStore((state) => state.isOnline);
 export const useWsConnected = () => useAppStore((state) => state.wsConnected);
 export const useNotifications = () => useAppStore((state) => state.notifications);
 
-// ✅ FIXED: Action selectors - directly return functions
+//  Action selectors - directly return functions
 export const useSyncActions = () => useAppStore((state) => state.updateSyncStatus);
