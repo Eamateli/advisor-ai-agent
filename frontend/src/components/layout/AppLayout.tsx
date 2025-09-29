@@ -1,7 +1,7 @@
 // frontend/src/components/layout/AppLayout.tsx
 import React from 'react';
 import { cn } from '../../lib/utils';
-import { useUI, useAppStore } from '../../store/app';
+import { useAppStore } from '../../store/app';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 
@@ -10,8 +10,9 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const { sidebarOpen } = useUI();
-  const { setSidebarOpen } = useAppStore();
+  // Use direct selectors instead of useUI()
+  const sidebarOpen = useAppStore((state) => state.sidebarOpen);
+  const setSidebarOpen = useAppStore((state) => state.setSidebarOpen);
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -29,10 +30,8 @@ export function AppLayout({ children }: AppLayoutProps) {
 
       {/* Main content area */}
       <div className="flex flex-col flex-1 min-w-0">
-        {/* Header */}
         <Header />
         
-        {/* Main content */}
         <main className="flex-1 overflow-hidden">
           {children}
         </main>

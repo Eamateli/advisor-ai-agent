@@ -17,9 +17,10 @@ import {
 
 export function Header() {
   const { user } = useAuth();
-  const { toggleSidebar, setSettingsOpen } = useAppStore();
-  const { isOnline, wsConnected } = useConnectionStatus();
-
+  const toggleSidebar = useAppStore((state) => state.toggleSidebar);
+  const setSettingsOpen = useAppStore((state) => state.setSettingsOpen);
+  const isOnline = useAppStore((state) => state.isOnline);
+  const wsConnected = useAppStore((state) => state.wsConnected);
   return (
     <header className="flex items-center justify-between h-14 px-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {/* Left section */}

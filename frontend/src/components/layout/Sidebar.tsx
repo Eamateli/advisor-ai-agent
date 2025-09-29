@@ -26,8 +26,8 @@ const sidebarItems = [
 ];
 
 export function Sidebar() {
-  const { sidebarOpen } = useUI();
-  const { setSettingsOpen } = useAppStore();
+  const sidebarOpen = useAppStore((state) => state.sidebarOpen);
+  const setSettingsOpen = useAppStore((state) => state.setSettingsOpen);
 
   if (!sidebarOpen) {
     return (
