@@ -2,12 +2,16 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth, useAuthActions } from '../store/auth';
-import { authApi } from '../services/api';
+import { config, endpoints } from '../lib/config';
 import { Button } from '../components/ui/Button';
 import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import { ThemeToggle } from '../lib/theme';
 import { parseErrorMessage } from '../lib/utils';
 import toast from 'react-hot-toast';
+import {
+  ChatBubbleLeftRightIcon,
+  SparklesIcon,
+} from '@heroicons/react/24/outline';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -27,41 +31,66 @@ export default function LoginPage() {
   useEffect(() => {
     const code = searchParams.get('code');
     const state = searchParams.get('state');
-    const error = searchParams.get('error');
+    const errorParam = searchParams.get('error');
 
-    if (error) {
-      setError('Authentication failed. Please try again.');
+    if (errorParam) {
+      setError(`Authentication failed: ${errorParam}`);
+      toast.error(`Authentication error: ${errorParam}`);
       return;
     }
 
-    if (code && state) {
+    if (code) {
       handleOAuthCallback(code, state);
     }
   }, [searchParams]);
 
-  const handleOAuthCallback = async (code: string, state: string) => {
+  const handleOAuthCallback = async (code: string, state: string | null) => {
     setLoading(true);
     setError(null);
 
     try {
-      // The backend should handle the OAuth callback and return user data
-      const response = await fetch(`/auth/google/callback?code=${code}&state=${state}`);
-      
+      // Verify state for CSRF protection (optional but recommended)
+      if (state) {
+        const storedState = sessionStorage.getItem('oauth_state');
+        if (storedState && state !== storedState) {
+          throw new Error('Invalid state parameter - possible CSRF attack');
+        }
+        sessionStorage.removeItem('oauth_state');
+      }
+
+      // Call backend OAuth callback endpoint
+      // Backend expects GET /auth/google/callback?code=xxx&state=xxx
+      const response = await fetch(
+        `${endpoints.auth.googleCallback}?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || '')}`,
+        {
+          method: 'GET',
+          credentials: 'include', // Include cookies if backend uses them
+        }
+      );
+
       if (!response.ok) {
-        throw new Error('Authentication failed');
+        const errorData = await response.json().catch(() => ({ detail: 'Authentication failed' }));
+        throw new Error(errorData.detail || errorData.message || 'Authentication failed');
       }
 
       const data = await response.json();
-      
+
+      // Store auth data using Zustand store
       login({
         access_token: data.access_token,
-        token_type: 'bearer',
+        token_type: data.token_type || 'bearer',
         user: data.user,
       });
 
       toast.success('Successfully logged in!');
-      navigate('/', { replace: true });
+      
+      // Check if there's a return URL from settings
+      const returnUrl = sessionStorage.getItem('oauth_return_url');
+      sessionStorage.removeItem('oauth_return_url');
+      
+      navigate(returnUrl || '/', { replace: true });
     } catch (err) {
+      console.error('OAuth callback error:', err);
       const errorMessage = parseErrorMessage(err);
       setError(errorMessage);
       toast.error(errorMessage);
@@ -75,18 +104,36 @@ export default function LoginPage() {
     setError(null);
 
     try {
-      const response = await authApi.googleLogin();
-      
-      if (response.authorization_url) {
-        window.location.href = response.authorization_url;
-      } else {
-        throw new Error('No authorization URL received');
+      // Generate and store state for CSRF protection
+      const state = generateRandomString(32);
+      sessionStorage.setItem('oauth_state', state);
+
+      // Call backend to get OAuth URL
+      // Backend returns { authorization_url: "https://accounts.google.com/..." }
+      const response = await fetch(endpoints.auth.google, {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to initiate authentication');
       }
+
+      const data = await response.json();
+
+      if (!data.authorization_url) {
+        throw new Error('No authorization URL received from server');
+      }
+
+      // Redirect to Google OAuth
+      window.location.href = data.authorization_url;
     } catch (err) {
+      console.error('Failed to initiate OAuth:', err);
       const errorMessage = parseErrorMessage(err);
       setError(errorMessage);
       toast.error(errorMessage);
       setLoading(false);
+      sessionStorage.removeItem('oauth_state');
     }
   };
 
@@ -95,7 +142,9 @@ export default function LoginPage() {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <LoadingSpinner size="lg" className="mx-auto mb-4" />
-          <p className="text-muted-foreground">Authenticating...</p>
+          <p className="text-muted-foreground">
+            {searchParams.get('code') ? 'Completing authentication...' : 'Redirecting to Google...'}
+          </p>
         </div>
       </div>
     );
@@ -113,19 +162,7 @@ export default function LoginPage() {
           {/* Header */}
           <div className="text-center">
             <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                />
-              </svg>
+              <ChatBubbleLeftRightIcon className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-foreground">
               Financial Advisor AI
@@ -135,18 +172,24 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Login form */}
-          <div className="space-y-6">
+          {/* Login Card */}
+          <div className="bg-card border border-border rounded-2xl p-8 shadow-lg">
+            <h2 className="text-xl font-semibold text-foreground mb-6 text-center">
+              Sign in to continue
+            </h2>
+
+            {/* Error message */}
             {error && (
-              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
+              <div className="mb-6 bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
 
+            {/* Google Login Button */}
             <Button
               onClick={handleGoogleLogin}
               disabled={isLoading}
-              className="w-full"
+              className="w-full h-12"
               size="lg"
             >
               <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
@@ -170,14 +213,53 @@ export default function LoginPage() {
               Continue with Google
             </Button>
 
-            <div className="text-center text-sm text-muted-foreground">
-              <p>
-                By continuing, you agree to our Terms of Service and Privacy Policy.
+            {/* Features List */}
+            <div className="mt-8 pt-6 border-t border-border">
+              <p className="text-sm text-muted-foreground mb-4 text-center">
+                With your account, you can:
               </p>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-center gap-2">
+                  <SparklesIcon className="w-4 h-4 text-primary flex-shrink-0" />
+                  <span>Search and analyze your meetings</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <SparklesIcon className="w-4 h-4 text-primary flex-shrink-0" />
+                  <span>Get AI-powered insights from your emails</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <SparklesIcon className="w-4 h-4 text-primary flex-shrink-0" />
+                  <span>Manage contacts from HubSpot</span>
+                </li>
+              </ul>
             </div>
+          </div>
+
+          {/* Privacy Notice */}
+          <div className="text-center text-sm text-muted-foreground">
+            <p>
+              By continuing, you agree to our Terms of Service and Privacy Policy.
+            </p>
+            <p className="mt-2 text-xs">
+              We'll access your Google Calendar and Gmail to provide personalized assistance.
+            </p>
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+// Helper: Generate random string for OAuth state
+function generateRandomString(length: number): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  const randomValues = new Uint8Array(length);
+  crypto.getRandomValues(randomValues);
+  
+  for (let i = 0; i < length; i++) {
+    result += chars[randomValues[i] % chars.length];
+  }
+  
+  return result;
 }
