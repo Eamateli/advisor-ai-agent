@@ -103,7 +103,7 @@ export function Header() {
         >
           <Avatar
             src={user?.profile_picture}
-            name={user?.full_name || user?.email}
+            name={user?.full_name || user?.email || 'User'}
             size="sm"
           />
           <span className="hidden sm:inline text-sm font-medium">
