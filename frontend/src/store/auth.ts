@@ -71,7 +71,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       // Auth helpers
-      getAuthHeaders: () => {
+      getAuthHeaders: (): Record<string, string> => {
         const token = get().token;
         return token ? { Authorization: `Bearer ${token}` } : {};
       },

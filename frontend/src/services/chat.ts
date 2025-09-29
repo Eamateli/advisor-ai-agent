@@ -1,6 +1,8 @@
 export function useChatStream() {
   return {
-    sendMessage: () => {},
+    sendMessage: async () => {
+      console.log('Send message stub');
+    },
     stopStream: () => {},
     isStreaming: false,
   };

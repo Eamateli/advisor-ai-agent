@@ -38,7 +38,7 @@ export default function ProfilePage() {
           <Avatar
             src={user.profile_picture}
             name={user.full_name || user.email}
-            size="xl"
+            size="lg"
           />
           
           <div className="flex-1 space-y-4">
