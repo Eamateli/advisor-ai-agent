@@ -147,3 +147,32 @@ export const successMessages = {
   UPDATED: 'Updated successfully.',
   SYNCED: 'Synced successfully.',
 } as const;
+
+
+// Theme configuration
+export const themeConfig = {
+  storageKey: 'financial-advisor-theme',
+  defaultTheme: 'system' as const,
+} as const;
+
+// WebSocket configuration
+export const wsConfig = {
+  reconnectInterval: 3000,
+  maxReconnectAttempts: 5,
+  heartbeatInterval: 30000,
+} as const;
+
+// Error messages
+export const errorMessages = {
+  network: 'Network error. Please check your connection.',
+  auth: 'Authentication failed. Please log in again.',
+  sync: 'Sync failed. Please try again.',
+  generic: 'Something went wrong. Please try again.',
+} as const;
+
+// Success messages
+export const successMessages = {
+  sync: 'Sync completed successfully',
+  saved: 'Changes saved successfully',
+  connected: 'Connected successfully',
+} as const;
