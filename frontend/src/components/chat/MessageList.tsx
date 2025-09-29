@@ -3,21 +3,10 @@ import React from 'react';
 import { cn } from '../../lib/utils';
 import { MessageBubble } from './MessageBubble';
 import { MeetingCard } from './MeetingCard';
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  created_at: string;
-  isStreaming?: boolean;
-  metadata?: {
-    meetings?: any[];
-    [key: string]: any;
-  };
-}
+import { ChatMessage, Meeting } from '../../types';
 
 interface MessageListProps {
-  messages: Message[];
+  messages: ChatMessage[];
   className?: string;
 }
 
@@ -27,6 +16,17 @@ export function MessageList({ messages, className }: MessageListProps) {
       {messages.map((message, index) => {
         const isLatest = index === messages.length - 1;
         
+        // Extract meetings from tool_calls if they exist
+        const meetings: Meeting[] = [];
+        
+        if (message.tool_calls) {
+          message.tool_calls.forEach(toolCall => {
+            if (toolCall.function.name === 'search_calendar_events' && toolCall.result?.meetings) {
+              meetings.push(...toolCall.result.meetings);
+            }
+          });
+        }
+        
         return (
           <div key={message.id}>
             <MessageBubble 
@@ -34,9 +34,9 @@ export function MessageList({ messages, className }: MessageListProps) {
               isLatest={isLatest}
             />
             
-            {message.metadata?.meetings && (
+            {meetings.length > 0 && (
               <div className="mt-4 space-y-3">
-                {message.metadata.meetings.map((meeting: any) => (
+                {meetings.map((meeting) => (
                   <MeetingCard 
                     key={meeting.id} 
                     meeting={meeting}

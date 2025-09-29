@@ -1,22 +1,9 @@
-// frontend/src/components/chat/MeetingCard.tsx
+// frontend/src/components/chat/MeetingCard.tsx 
 import React from 'react';
 import { cn } from '../../lib/utils';
-import { CalendarIcon, ClockIcon } from '@heroicons/react/24/outline';
+import { ClockIcon } from '@heroicons/react/24/outline';
 import { Avatar } from '../ui/Avatar';
-
-interface Meeting {
-  id: string;
-  title: string;
-  start: string;
-  end: string;
-  attendees?: Array<{
-    name: string;
-    email: string;
-    avatar?: string;
-  }>;
-  location?: string;
-  description?: string;
-}
+import { Meeting } from '../../types';
 
 interface MeetingCardProps {
   meeting: Meeting;
@@ -24,8 +11,8 @@ interface MeetingCardProps {
 }
 
 export function MeetingCard({ meeting, className }: MeetingCardProps) {
-  const startDate = new Date(meeting.start);
-  const endDate = new Date(meeting.end);
+  const startDate = new Date(meeting.start_time);
+  const endDate = new Date(meeting.end_time);
   
   const dayNumber = startDate.getDate();
   const dayName = startDate.toLocaleDateString('en-US', { weekday: 'long' });
@@ -67,7 +54,7 @@ export function MeetingCard({ meeting, className }: MeetingCardProps) {
           {meeting.attendees.slice(0, 5).map((attendee, index) => (
             <Avatar
               key={attendee.email}
-              name={attendee.name}
+              name={attendee.name || attendee.email}
               src={attendee.avatar}
               size="sm"
               className={cn(

@@ -65,7 +65,12 @@ export interface Meeting {
   title: string;
   start_time: string;
   end_time: string;
-  attendees: Participant[];
+    attendees?: Array<{  // Make it optional and generic
+    name?: string;
+    email: string;
+    avatar?: string;
+    status?: 'accepted' | 'declined' | 'pending';
+  }>;
   description?: string;
   location?: string;
   meeting_link?: string;
