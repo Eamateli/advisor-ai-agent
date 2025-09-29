@@ -1,7 +1,7 @@
 // frontend/src/components/layout/Sidebar.tsx
 import React from 'react';
 import { cn } from '../../lib/utils';
-import { useUI, useAppStore } from '../../store/app';
+import { useAppStore } from '../../store/app';
 import { Button } from '../ui/Button';
 import { 
   ChatBubbleLeftIcon,

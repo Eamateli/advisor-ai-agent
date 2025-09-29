@@ -2,7 +2,6 @@
 import React from 'react';
 import { useAuth } from '../../store/auth';
 import { useAppStore } from '../../store/app';
-import { useConnectionStatus } from '../../store/app';
 import { cn } from '../../lib/utils';
 import { ThemeToggle } from '../../lib/theme';
 import { Button } from '../ui/Button';
