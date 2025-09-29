@@ -20,6 +20,8 @@ from app.models.email import Email
 from app.models.hubspot import HubSpotContact, HubSpotNote
 from app.models.chat import ChatMessage
 from app.models.task import Task, Instruction
+from app.models.consent import UserConsent  
+from app.core.audit import AuditLog
 
 # this is the Alembic Config object
 config = context.config
