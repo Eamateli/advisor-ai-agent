@@ -13,12 +13,18 @@ class RateLimiter:
     def __init__(self):
         try:
             self.redis_client = redis.from_url(settings.REDIS_URL, decode_responses=True)
+            self.redis_client.ping()  # Test connection
             self.enabled = True
-            logger.info("Rate limiter initialized with Redis")
+            logger.info("[PASS] Rate limiter initialized with Redis")
         except Exception as e:
-            logger.warning(f"Redis not available, rate limiting disabled: {e}")
-            self.redis_client = None
-            self.enabled = False
+            # In production, Redis is required for security
+            if settings.ENVIRONMENT == "production":
+                logger.error(f"[FAIL] Redis connection REQUIRED in production: {e}")
+                raise RuntimeError("Redis connection required for production rate limiting") from e
+            else:
+                logger.warning(f"⚠️  Redis not available in dev, rate limiting disabled: {e}")
+                self.redis_client = None
+                self.enabled = False
     
     def _get_key(self, identifier: str, endpoint: str) -> str:
         """Generate rate limit key"""

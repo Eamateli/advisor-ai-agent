@@ -38,6 +38,28 @@ async def lifespan(app: FastAPI):
     """Handle startup and shutdown events"""
     # Startup
     logger.info(f"Starting {settings.APP_NAME}...")
+
+    # Add production validation
+    if settings.ENVIRONMENT == "production":
+        required_secrets = {
+            "SECRET_KEY": settings.SECRET_KEY,
+            "ENCRYPTION_KEY": settings.ENCRYPTION_KEY,
+            "ANTHROPIC_API_KEY": settings.ANTHROPIC_API_KEY,
+            "OPENAI_API_KEY": settings.OPENAI_API_KEY,
+            "GOOGLE_CLIENT_ID": settings.GOOGLE_CLIENT_ID,
+            "GOOGLE_CLIENT_SECRET": settings.GOOGLE_CLIENT_SECRET,
+            "HUBSPOT_CLIENT_ID": settings.HUBSPOT_CLIENT_ID,
+            "HUBSPOT_CLIENT_SECRET": settings.HUBSPOT_CLIENT_SECRET,
+        }
+    
+        missing = [name for name, value in required_secrets.items() if not value]
+        
+        if missing:
+            error_msg = f"[FAIL] CRITICAL: Missing required secrets in production: {', '.join(missing)}"
+            logger.error(error_msg)
+            raise ValueError(error_msg)
+        
+        logger.info("[PASS] All required production secrets validated")
     
     # Initialize database tables
     from app.core.database import engine, Base
@@ -91,7 +113,13 @@ app.add_middleware(
 )
 
 # CORS Configuration
-origins = settings.ALLOWED_ORIGINS.split(",") if isinstance(settings.ALLOWED_ORIGINS, str) else [settings.ALLOWED_ORIGINS]
+if isinstance(settings.ALLOWED_ORIGINS, str):
+    origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",")]
+else:
+    origins = [settings.ALLOWED_ORIGINS]
+
+if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
+    origins.append(settings.FRONTEND_URL)
 if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
     origins.append(settings.FRONTEND_URL)
 
