@@ -12,7 +12,6 @@ import { TypingIndicator } from '../ui/LoadingSpinner';
 import { 
   ClipboardIcon, 
   CheckIcon,
-  UserIcon,
   CpuChipIcon 
 } from '@heroicons/react/24/outline';
 
