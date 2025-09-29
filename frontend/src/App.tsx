@@ -30,3 +30,142 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
   
   return <>{children}</>;
+}
+
+function App() {
+  const { isAuthenticated } = useAuthStore();
+  const { setOnlineStatus, setWebSocketStatus } = useAppStore();
+
+  // Set up online/offline listeners
+  useEffect(() => {
+    const handleOnline = () => setOnlineStatus(true);
+    const handleOffline = () => setOnlineStatus(false);
+
+    // Set initial online status
+    setOnlineStatus(navigator.onLine);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [setOnlineStatus]);
+
+  // Initialize WebSocket connection when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      try {
+        wsService.connect();
+        setWebSocketStatus(true);
+      } catch (error) {
+        console.error('Failed to connect WebSocket:', error);
+        setWebSocketStatus(false);
+      }
+
+      return () => {
+        try {
+          wsService.disconnect();
+          setWebSocketStatus(false);
+        } catch (error) {
+          console.error('Error disconnecting WebSocket:', error);
+        }
+      };
+    }
+  }, [isAuthenticated, setWebSocketStatus]);
+
+  return (
+    <ThemeProvider>
+      <Router>
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center h-screen bg-background">
+              <div className="text-center">
+                <LoadingSpinner size="lg" />
+                <p className="mt-4 text-sm text-muted-foreground">Loading...</p>
+              </div>
+            </div>
+          }
+        >
+          <Routes>
+            {/* Public routes */}
+            <Route path="/login" element={<LoginPage />} />
+
+            {/* Protected routes */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <ChatPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <SettingsPage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <ProfilePage />
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* OAuth callback routes */}
+            <Route
+              path="/auth/google/callback"
+              element={<LoginPage />}
+            />
+            <Route
+              path="/auth/hubspot/callback"
+              element={<LoginPage />}
+            />
+
+            {/* Catch all - redirect to home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
+
+        {/* Global toast notifications */}
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: 'var(--background)',
+              color: 'var(--foreground)',
+              border: '1px solid var(--border)',
+            },
+            success: {
+              iconTheme: {
+                primary: 'var(--primary)',
+                secondary: 'var(--primary-foreground)',
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: 'var(--destructive)',
+                secondary: 'var(--destructive-foreground)',
+              },
+            },
+          }}
+        />
+      </Router>
+    </ThemeProvider>
+  );
+}
+
+export default App;
