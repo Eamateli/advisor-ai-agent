@@ -16,6 +16,8 @@ interface QuickActionsProps {
   onActionClick?: (text: string) => void;
 }
 
+// ✅ CRITICAL FIX: Move defaultActions OUTSIDE the component
+// This prevents a new array from being created on every render
 const defaultActions: QuickAction[] = [
   {
     id: 'meetings-with',
@@ -87,7 +89,9 @@ export function QuickActions({ onActionClick }: QuickActionsProps) {
                 </div>
               )}
               
-              <span className="text-muted-foreground">this month</span>
+              {action.id === 'meetings-with' && (
+                <span className="text-muted-foreground">this month</span>
+              )}
             </button>
           ))}
         </div>

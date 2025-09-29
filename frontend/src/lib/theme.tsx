@@ -1,5 +1,5 @@
-// frontend/src/lib/theme.tsx
-import React, { createContext, useContext, useEffect, useState } from 'react';
+// frontend/src/lib/theme.tsx - FINAL FIX
+import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { SunIcon, MoonIcon, ComputerDesktopIcon } from '@heroicons/react/24/outline';
 import { cn } from './utils';
 import { themeConfig } from './config';
@@ -67,14 +67,18 @@ export function ThemeProvider({
     }
   }, [theme]);
 
-  const value = {
+  // ✅ FIX: Use useCallback to memoize setTheme function
+  const handleSetTheme = useCallback((newTheme: Theme) => {
+    localStorage.setItem(storageKey, newTheme);
+    setTheme(newTheme);
+  }, [storageKey]);
+
+  // ✅ FIX: Use useMemo to memoize the context value
+  const value = useMemo(() => ({
     theme,
-    setTheme: (theme: Theme) => {
-      localStorage.setItem(storageKey, theme);
-      setTheme(theme);
-    },
+    setTheme: handleSetTheme,
     resolvedTheme,
-  };
+  }), [theme, handleSetTheme, resolvedTheme]);
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>
@@ -131,21 +135,28 @@ export function ThemeToggle() {
 export function ThemeToggleSimple() {
   const { theme, setTheme, resolvedTheme } = useTheme();
 
-  const cycleTheme = () => {
+  const cycleTheme = useCallback(() => {
     const themes: Theme[] = ['light', 'dark', 'system'];
     const currentIndex = themes.indexOf(theme);
     const nextIndex = (currentIndex + 1) % themes.length;
     setTheme(themes[nextIndex]);
-  };
+  }, [theme, setTheme]);
 
   const Icon = resolvedTheme === 'dark' ? MoonIcon : SunIcon;
 
   return (
     <button
       onClick={cycleTheme}
-      className="p-2 rounded-md hover:bg-accent transition-colors"
+      className={cn(
+        'inline-flex items-center justify-center',
+        'w-9 h-9 rounded-md',
+        'text-muted-foreground hover:text-foreground',
+        'hover:bg-accent',
+        'transition-colors',
+        'focus:outline-none focus:ring-2 focus:ring-primary/20'
+      )}
       title={`Current theme: ${theme}`}
-      aria-label={`Toggle theme (current: ${theme})`}
+      aria-label="Toggle theme"
     >
       <Icon className="w-5 h-5" />
     </button>

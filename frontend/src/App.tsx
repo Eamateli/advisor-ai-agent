@@ -93,84 +93,72 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <ThemeProvider>
+      <ThemeProvider defaultTheme="system" storageKey="app-theme">
         <Router>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              {/* Public routes */}
-              <Route path="/login" element={<LoginPage />} />
+          <Routes>
+            {/* Public route */}
+            <Route
+              path="/login"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <LoginPage />
+                </Suspense>
+              }
+            />
 
-              {/* Protected routes */}
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
+            {/* Protected routes */}
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Suspense fallback={<PageLoader />}>
                       <ChatPage />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/settings"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
+                    </Suspense>
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/settings"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Suspense fallback={<PageLoader />}>
                       <SettingsPage />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <AppLayout>
+                    </Suspense>
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Suspense fallback={<PageLoader />}>
                       <ProfilePage />
-                    </AppLayout>
-                  </ProtectedRoute>
-                }
-              />
+                    </Suspense>
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
 
-              {/* OAuth callback routes */}
-              <Route path="/auth/google/callback" element={<LoginPage />} />
-              <Route path="/auth/hubspot/callback" element={<LoginPage />} />
+            {/* Catch-all redirect */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
 
-              {/* Catch all - redirect to home or login */}
-              <Route
-                path="*"
-                element={
-                  isAuthenticated ? (
-                    <Navigate to="/" replace />
-                  ) : (
-                    <Navigate to="/login" replace />
-                  )
-                }
-              />
-            </Routes>
-          </Suspense>
-
-          {/* Global toast notifications */}
+          {/* Toast notifications */}
           <Toaster
             position="top-right"
             toastOptions={{
-              duration: 3000,
+              duration: 4000,
               style: {
                 background: 'var(--background)',
                 color: 'var(--foreground)',
                 border: '1px solid var(--border)',
-              },
-              success: {
-                iconTheme: {
-                  primary: 'var(--primary)',
-                  secondary: 'var(--primary-foreground)',
-                },
-              },
-              error: {
-                iconTheme: {
-                  primary: 'var(--destructive)',
-                  secondary: 'var(--destructive-foreground)',
-                },
               },
             }}
           />

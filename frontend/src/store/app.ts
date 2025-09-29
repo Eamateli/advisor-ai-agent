@@ -1,4 +1,4 @@
-// frontend/src/store/app.ts
+// frontend/src/store/app.ts - PERMANENT FIX
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { AppSettings, SyncStatus } from '../types';
@@ -30,7 +30,7 @@ interface AppState {
   }>;
 }
 
-interface AppStore extends AppState {
+interface AppActions {
   // UI Actions
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
@@ -54,6 +54,8 @@ interface AppStore extends AppState {
   removeNotification: (id: string) => void;
   clearNotifications: () => void;
 }
+
+type AppStore = AppState & AppActions;
 
 const defaultSettings: AppSettings = {
   theme: 'system',
@@ -91,7 +93,7 @@ const defaultSyncStatus: SyncStatus = {
 
 export const useAppStore = create<AppStore>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       // Initial state
       sidebarOpen: true,
       settingsOpen: false,
@@ -112,20 +114,16 @@ export const useAppStore = create<AppStore>()(
       setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
 
       // Settings Actions
-      updateSettings: (newSettings) => {
-        set((state) => ({
-          settings: { ...state.settings, ...newSettings }
-        }));
-      },
+      updateSettings: (newSettings) => set((state) => ({
+        settings: { ...state.settings, ...newSettings }
+      })),
 
       resetSettings: () => set({ settings: defaultSettings }),
 
       // Sync Actions
-      updateSyncStatus: (statusUpdate) => {
-        set((state) => ({
-          syncStatus: { ...state.syncStatus, ...statusUpdate }
-        }));
-      },
+      updateSyncStatus: (statusUpdate) => set((state) => ({
+        syncStatus: { ...state.syncStatus, ...statusUpdate }
+      })),
 
       // Connection Actions
       setOnlineStatus: (online) => set({ isOnline: online }),
@@ -133,7 +131,7 @@ export const useAppStore = create<AppStore>()(
       setWebSocketStatus: (connected) => set({ wsConnected: connected }),
 
       // Notification Actions
-      addNotification: (notification) => {
+      addNotification: (notification) => set((state) => {
         const newNotification = {
           ...notification,
           id: Math.random().toString(36).substring(2),
@@ -141,24 +139,20 @@ export const useAppStore = create<AppStore>()(
           read: false,
         };
         
-        set((state) => ({
-          notifications: [newNotification, ...state.notifications].slice(0, 50) // Keep only 50 latest
-        }));
-      },
+        return {
+          notifications: [newNotification, ...state.notifications].slice(0, 50)
+        };
+      }),
 
-      markNotificationRead: (id) => {
-        set((state) => ({
-          notifications: state.notifications.map((notif) =>
-            notif.id === id ? { ...notif, read: true } : notif
-          )
-        }));
-      },
+      markNotificationRead: (id) => set((state) => ({
+        notifications: state.notifications.map((notif) =>
+          notif.id === id ? { ...notif, read: true } : notif
+        )
+      })),
 
-      removeNotification: (id) => {
-        set((state) => ({
-          notifications: state.notifications.filter((notif) => notif.id !== id)
-        }));
-      },
+      removeNotification: (id) => set((state) => ({
+        notifications: state.notifications.filter((notif) => notif.id !== id)
+      })),
 
       clearNotifications: () => set({ notifications: [] }),
     }),
@@ -172,49 +166,14 @@ export const useAppStore = create<AppStore>()(
   )
 );
 
-// Selectors
-export const useUI = () => useAppStore((state) => ({
-  sidebarOpen: state.sidebarOpen,
-  settingsOpen: state.settingsOpen,
-  commandPaletteOpen: state.commandPaletteOpen,
-}));
-
-export const useUIActions = () => useAppStore((state) => ({
-  setSidebarOpen: state.setSidebarOpen,
-  toggleSidebar: state.toggleSidebar,
-  setSettingsOpen: state.setSettingsOpen,
-  setCommandPaletteOpen: state.setCommandPaletteOpen,
-}));
-
+// ✅ FIXED: Simple direct selectors - no object creation
+export const useSidebarOpen = () => useAppStore((state) => state.sidebarOpen);
+export const useSettingsOpen = () => useAppStore((state) => state.settingsOpen);
 export const useSettings = () => useAppStore((state) => state.settings);
-export const useSettingsActions = () => useAppStore((state) => ({
-  updateSettings: state.updateSettings,
-  resetSettings: state.resetSettings,
-}));
-
 export const useSyncStatus = () => useAppStore((state) => state.syncStatus);
-export const useSyncActions = () => useAppStore((state) => ({
-  updateSyncStatus: state.updateSyncStatus,
-}));
-
-export const useConnectionStatus = () => useAppStore((state) => ({
-  isOnline: state.isOnline,
-  wsConnected: state.wsConnected,
-}));
-
-export const useConnectionActions = () => useAppStore((state) => ({
-  setOnlineStatus: state.setOnlineStatus,
-  setWebSocketStatus: state.setWebSocketStatus,
-}));
-
+export const useIsOnline = () => useAppStore((state) => state.isOnline);
+export const useWsConnected = () => useAppStore((state) => state.wsConnected);
 export const useNotifications = () => useAppStore((state) => state.notifications);
-export const useNotificationActions = () => useAppStore((state) => ({
-  addNotification: state.addNotification,
-  markNotificationRead: state.markNotificationRead,
-  removeNotification: state.removeNotification,
-  clearNotifications: state.clearNotifications,
-}));
 
-export const useUnreadNotifications = () => useAppStore((state) => 
-  state.notifications.filter(n => !n.read)
-);
+// ✅ FIXED: Action selectors - directly return functions
+export const useSyncActions = () => useAppStore((state) => state.updateSyncStatus);

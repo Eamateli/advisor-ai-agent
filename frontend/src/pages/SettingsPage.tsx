@@ -30,7 +30,7 @@ export default function SettingsPage() {
   const { user } = useAuth();
   const { logout, updateUser } = useAuthActions();
   const syncStatus = useSyncStatus();
-  const { updateSyncStatus } = useSyncActions();
+  const updateSyncStatus = useSyncActions();
   const { theme, setTheme } = useTheme();
   
   const [activeTab, setActiveTab] = useState<TabId>('profile');

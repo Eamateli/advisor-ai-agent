@@ -1,7 +1,7 @@
-// frontend/src/components/layout/Sidebar.tsx
+// frontend/src/components/layout/Sidebar.tsx - FIXED
 import React from 'react';
 import { cn } from '../../lib/utils';
-import { useAppStore } from '../../store/app';
+import { useSidebarOpen, useAppStore } from '../../store/app';
 import { Button } from '../ui/Button';
 import { 
   ChatBubbleLeftIcon,
@@ -26,7 +26,8 @@ const sidebarItems = [
 ];
 
 export function Sidebar() {
-  const sidebarOpen = useAppStore((state) => state.sidebarOpen);
+  // ✅ FIXED: Use individual selector
+  const sidebarOpen = useSidebarOpen();
   const setSettingsOpen = useAppStore((state) => state.setSettingsOpen);
 
   if (!sidebarOpen) {
@@ -74,8 +75,11 @@ export function Sidebar() {
           {sidebarItems.map((item) => (
             <Button
               key={item.id}
-              variant={item.active ? "secondary" : "ghost"}
-              className="w-full justify-start"
+              variant={item.active ? 'secondary' : 'ghost'}
+              className={cn(
+                'w-full justify-start',
+                item.active && 'bg-accent'
+              )}
               size="sm"
             >
               <item.icon className="w-4 h-4 mr-3" />
@@ -83,24 +87,13 @@ export function Sidebar() {
             </Button>
           ))}
         </div>
-
-        <div className="p-4">
-          <h3 className="text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wider">
-            Recent Conversations
-          </h3>
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <div className="text-center py-8">
-              <p>No recent conversations</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="p-4 border-t border-border">
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start" 
+        <Button
+          variant="ghost"
           size="sm"
+          className="w-full justify-start"
           onClick={() => setSettingsOpen(true)}
         >
           <Cog6ToothIcon className="w-4 h-4 mr-3" />

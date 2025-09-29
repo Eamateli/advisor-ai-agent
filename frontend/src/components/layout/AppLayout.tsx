@@ -1,7 +1,7 @@
-// frontend/src/components/layout/AppLayout.tsx
+// frontend/src/components/layout/AppLayout.tsx - FIXED
 import React from 'react';
 import { cn } from '../../lib/utils';
-import { useAppStore } from '../../store/app';
+import { useSidebarOpen, useAppStore } from '../../store/app';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 
@@ -10,8 +10,8 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  // Use direct selectors instead of useUI()
-  const sidebarOpen = useAppStore((state) => state.sidebarOpen);
+  // ✅ FIXED: Use individual selectors
+  const sidebarOpen = useSidebarOpen();
   const setSidebarOpen = useAppStore((state) => state.setSidebarOpen);
 
   return (
