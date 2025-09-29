@@ -1,64 +1,67 @@
 // frontend/src/components/chat/ChatContainer.tsx
-import React, { useEffect, useRef, useState } from 'react';
-import { cn } from '../../lib/utils';
-import { useChatStore } from '../../store/chat';
+import React, { useEffect, useRef } from 'react';
+import { cn, scrollToBottom } from '../../lib/utils';
+import { useChatStream } from '../../services/chat';
 import { ChatInput } from './ChatInput';
 import { MessageList } from './MessageList';
 import { ContextHeader } from './ContextHeader';
 import { QuickActions } from './QuickActions';
 import { EmptyState } from './EmptyState';
-import { ScrollArea } from '../ui/ScrollArea';
 
 interface ChatContainerProps {
   className?: string;
 }
 
 export function ChatContainer({ className }: ChatContainerProps) {
-  const { messages, isLoading, currentThreadId } = useChatStore();
+  const { messages, isLoading, sendMessage } = useChatStream();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [autoScroll, setAutoScroll] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (autoScroll && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (containerRef.current) {
+      scrollToBottom(containerRef.current);
     }
-  }, [messages, autoScroll]);
+  }, [messages]);
 
   const hasMessages = messages.length > 0;
 
   return (
     <div className={cn('flex flex-col h-full bg-background', className)}>
-      {/* Context Header - Shows current context (e.g., "All meetings") */}
-      <ContextHeader />
+      {/* Context Header */}
+      <ContextHeader
+        contextLabel="all meetings"
+        startDate="2024-11-17"
+        endDate="2025-05-13"
+      />
 
       {/* Main chat area */}
-      <div className="flex-1 overflow-hidden relative">
-        <ScrollArea className="h-full">
-          <div className="max-w-4xl mx-auto px-4 py-6">
-            {hasMessages ? (
-              <>
-                {/* Message List */}
-                <MessageList messages={messages} />
-                
-                {/* Scroll anchor */}
-                <div ref={messagesEndRef} />
-              </>
-            ) : (
-              /* Empty state when no messages */
-              <EmptyState />
-            )}
-          </div>
-        </ScrollArea>
+      <div 
+        ref={containerRef}
+        className="flex-1 overflow-y-auto"
+      >
+        <div className="max-w-4xl mx-auto px-4 py-6">
+          {hasMessages ? (
+            <>
+              <MessageList messages={messages} />
+              <div ref={messagesEndRef} />
+            </>
+          ) : (
+            <EmptyState />
+          )}
+        </div>
       </div>
 
-      {/* Quick Actions - Suggestion pills */}
-      {!hasMessages && <QuickActions />}
+      {/* Quick Actions - only show when no messages */}
+      {!hasMessages && <QuickActions onActionClick={sendMessage} />}
 
       {/* Chat Input */}
       <div className="border-t border-border bg-background">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <ChatInput />
+          <ChatInput 
+            onSendMessage={sendMessage}
+            disabled={isLoading}
+          />
         </div>
       </div>
     </div>
