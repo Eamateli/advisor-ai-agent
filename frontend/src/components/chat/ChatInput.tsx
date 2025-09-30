@@ -9,8 +9,7 @@ import { useChatStream } from '../../services/chat';
 import { Button } from '../ui/Button';
 import { 
   PaperAirplaneIcon,
-  StopIcon,
-  CalendarIcon
+  StopIcon
 } from '@heroicons/react/24/outline';
 
 const chatSchema = z.object({
@@ -168,23 +167,6 @@ export function ChatInput({
               </div>
             )}
           </div>
-
-          {/* Context selector button - hide on mobile */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="flex-shrink-0 text-xs px-2 sm:px-3 h-8 sm:h-9 hidden sm:flex"
-            disabled={isDisabled}
-            title="Select context"
-            onClick={() => {
-              // TODO: Implement context selection
-              console.log('Context selector clicked');
-            }}
-          >
-            <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-            <span className="hidden md:inline">General</span>
-          </Button>
 
           {/* Send or Stop button */}
           {isStreaming ? (

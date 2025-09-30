@@ -3,7 +3,6 @@ import React from 'react';
 import { cn } from '../../lib/utils';
 import { 
   ChatBubbleLeftRightIcon,
-  CalendarDaysIcon,
   SparklesIcon 
 } from '@heroicons/react/24/outline';
 
@@ -27,45 +26,6 @@ export function EmptyState() {
         What do you want to know?
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl">
-        <FeatureCard
-          icon={<CalendarDaysIcon className="w-5 h-5" />}
-          title="Find meetings"
-          description="Search by attendees, dates, or topics"
-        />
-        <FeatureCard
-          icon={<ChatBubbleLeftRightIcon className="w-5 h-5" />}
-          title="Get summaries"
-          description="Quickly recap past conversations"
-        />
-        <FeatureCard
-          icon={<SparklesIcon className="w-5 h-5" />}
-          title="Take actions"
-          description="Schedule follow-ups and more"
-        />
-      </div>
-    </div>
-  );
-}
-
-interface FeatureCardProps {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}
-
-function FeatureCard({ icon, title, description }: FeatureCardProps) {
-  return (
-    <div className={cn(
-      'flex flex-col items-center text-center p-4',
-      'rounded-xl border border-border bg-card',
-      'hover:shadow-md transition-all duration-200'
-    )}>
-      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-3">
-        {icon}
-      </div>
-      <h3 className="font-medium text-foreground mb-1">{title}</h3>
-      <p className="text-sm text-muted-foreground">{description}</p>
     </div>
   );
 }

@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # DATABASE SETTINGS
     # ============================================================================
     DATABASE_URL: str  # REQUIRED - postgresql://user:pass@host:port/dbname
-    REDIS_URL: str = "redis://localhost:6379"
+    REDIS_URL: Optional[str] = None  # Optional - will disable Redis features if not provided
     
     # ============================================================================
     # GOOGLE OAUTH SETTINGS

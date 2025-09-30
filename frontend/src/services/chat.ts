@@ -47,6 +47,7 @@ export function useChatStream(): UseChatStreamReturn {
    * Send message using HTTP (Server-Sent Events)
    */
   const sendMessageWithHTTP = useCallback(async (content: string) => {
+    console.log('🌐 Starting HTTP streaming for message:', content);
     setIsLoading(true);
     setIsStreaming(true);
 
@@ -72,8 +73,10 @@ export function useChatStream(): UseChatStreamReturn {
     currentStreamIdRef.current = assistantMessageId;
 
     try {
+      console.log('📡 Making HTTP request to /chat/stream');
       // Use the streaming API endpoint
       const response = await api.stream('/chat/stream', { message: content });
+      console.log('📡 HTTP response received, starting to read stream');
       const reader = response.getReader();
       const decoder = new TextDecoder();
 
@@ -162,13 +165,13 @@ export function useChatStream(): UseChatStreamReturn {
       currentStreamIdRef.current = null;
 
     } catch (error: any) {
-      console.error('Failed to send message:', error);
+      console.error('❌ HTTP streaming failed:', error);
       setMessages((prev) =>
         prev.map((msg) =>
           msg.id === assistantMessageId
             ? {
                 ...msg,
-                content: msg.content || 'Sorry, I encountered an error. Please try again.',
+                content: msg.content || `Sorry, I encountered an error: ${error.message}. Please try again.`,
                 isStreaming: false,
               }
             : msg
@@ -177,7 +180,15 @@ export function useChatStream(): UseChatStreamReturn {
       setIsStreaming(false);
       setIsLoading(false);
       currentStreamIdRef.current = null;
-      toast.error('Failed to send message');
+      
+      // Show specific error message
+      if (error.message.includes('401')) {
+        toast.error('Authentication failed. Please log in again.');
+      } else if (error.message.includes('Failed to fetch')) {
+        toast.error('Cannot connect to server. Please check your connection.');
+      } else {
+        toast.error(`Failed to send message: ${error.message}`);
+      }
     }
   }, []);
 
@@ -238,23 +249,15 @@ export function useChatStream(): UseChatStreamReturn {
       }
       
       if (!wsService.isConnected()) {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessageId
-              ? {
-                  ...msg,
-                  content: 'Failed to establish WebSocket connection. Switching to HTTP mode...',
-                  isStreaming: false,
-                }
-              : msg
-          )
-        );
+        console.log('🔄 WebSocket not connected, falling back to HTTP');
         setIsStreaming(false);
         setIsLoading(false);
-        toast.error('WebSocket connection failed');
+        
+        // Remove the assistant message and try HTTP instead
+        setMessages((prev) => prev.filter(msg => msg.id !== assistantMessageId));
         
         // Fallback to HTTP
-        setUseWebSocket(false);
+        await sendMessageWithHTTP(content);
         return;
       }
     }
@@ -331,11 +334,11 @@ export function useChatStream(): UseChatStreamReturn {
       });
 
       try {
-        if (useWebSocket) {
+        if (useWebSocket && wsService.isConnected()) {
           console.log('📡 Using WebSocket for message');
           await sendMessageWithWebSocket(content);
         } else {
-          console.log('🌐 Using HTTP for message');
+          console.log('🌐 Using HTTP for message (WebSocket not available)');
           await sendMessageWithHTTP(content);
         }
       } catch (error) {
@@ -343,7 +346,7 @@ export function useChatStream(): UseChatStreamReturn {
         toast.error('Failed to send message. Please try again.');
       }
     },
-    [useWebSocket]
+    [useWebSocket, sendMessageWithWebSocket, sendMessageWithHTTP]
   );
 
   /**
