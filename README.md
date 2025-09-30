@@ -470,8 +470,6 @@ Unauthorized use of this code may result in legal action. By using this code, yo
 
 ## Challenge Submission
 
-**Deployed App:** [Your Render URL]
-**GitHub Repository:** [Your GitHub URL]
 
 **Features Delivered:**
 - Google OAuth with email/calendar permissions
