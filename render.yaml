@@ -11,7 +11,7 @@ services:
   - type: web
     name: financial-advisor-backend
     runtime: python
-    plan: free  # or 'starter' for production
+    plan: starter  # Free tier is now 'starter'
     buildCommand: |
       cd backend && 
       pip install -r requirements.txt &&
@@ -59,7 +59,7 @@ services:
   - type: web
     name: financial-advisor-frontend
     runtime: static
-    plan: free
+    plan: starter  # Free tier is now 'starter'
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/build
     envVars:
@@ -85,7 +85,7 @@ services:
   - type: worker
     name: financial-advisor-celery-worker
     runtime: python
-    plan: free
+    plan: starter  # Free tier is now 'starter'
     buildCommand: cd backend && pip install -r requirements.txt
     startCommand: cd backend && celery -A app.tasks.celery_app worker --loglevel=info -Q sync,agent,webhooks
     envVars:
@@ -121,7 +121,7 @@ services:
   - type: worker
     name: financial-advisor-celery-beat
     runtime: python
-    plan: free
+    plan: starter  # Free tier is now 'starter'
     buildCommand: cd backend && pip install -r requirements.txt
     startCommand: cd backend && celery -A app.tasks.celery_app beat --loglevel=info
     envVars:
