@@ -51,6 +51,8 @@ class ApiClient {
           // Try to refresh token or logout
           const authStore = useAuthStore.getState();
           if (!authStore.isTokenValid()) {
+            // Clear any existing toasts before logout
+            toast.dismiss();
             authStore.logout();
             toast.error('Session expired. Please log in again.');
             return Promise.reject(error);
@@ -60,12 +62,22 @@ class ApiClient {
         // Handle rate limiting
         if (error.response?.status === 429) {
           const retryAfter = error.response.headers['retry-after'];
-          toast.error(`Rate limit exceeded. Try again in ${retryAfter || 60} seconds.`);
+          const authStore = useAuthStore.getState();
+          if (authStore.isAuthenticated && !authStore.isLoggingOut) {
+            toast.error(`Rate limit exceeded. Try again in ${retryAfter || 60} seconds.`);
+          }
         }
 
         // Handle network errors
         if (!error.response) {
-          toast.error('Network error. Please check your connection.');
+          // Don't show network error toasts during logout or when user is not authenticated
+          const authStore = useAuthStore.getState();
+          if (authStore.isAuthenticated && !authStore.isLoggingOut) {
+            toast.error('Network error. Please check your connection.', {
+              duration: 5000,
+              id: 'network-error'
+            });
+          }
         }
 
         return Promise.reject(error);
@@ -110,6 +122,8 @@ class ApiClient {
     const authStore = useAuthStore.getState();
     const headers = {
       'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+      'Cache-Control': 'no-cache',
       ...(authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}),
     };
 
@@ -120,7 +134,8 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
 
     if (!response.body) {
@@ -143,7 +158,7 @@ export const authApi = {
 
 export const chatApi = {
   sendMessage: (message: string, conversation_id?: string) =>
-    api.post(endpoints.chat.stream, { message, conversation_id }),
+    api.stream(endpoints.chat.stream, { message, conversation_id }),
   
   getHistory: (limit = 50, offset = 0) =>
     api.get(`${endpoints.chat.history}?limit=${limit}&offset=${offset}`),

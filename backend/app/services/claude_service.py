@@ -47,7 +47,7 @@ class ClaudeService:
                         if hasattr(event.delta, 'text'):
                             text = event.delta.text
                             full_response += text
-                            yield {"type": "content", "text": text}
+                            yield {"type": "content", "content": text}
                     elif event.type == 'message_stop':
                         # Parse for tool calls in the response
                         tool_uses = self._extract_tool_calls(full_response)

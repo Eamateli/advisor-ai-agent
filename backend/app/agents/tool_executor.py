@@ -28,6 +28,27 @@ class ToolExecutor:
         try:
             logger.info(f"Executing tool: {tool_name} with input: {tool_input}")
             
+            # Check consent for sensitive tools
+            sensitive_tools = {
+                "send_email", "create_calendar_event", "create_hubspot_contact", 
+                "add_hubspot_note", "create_task"
+            }
+            
+            if tool_name in sensitive_tools:
+                is_allowed, reason = consent_manager.check_consent(
+                    db=self.db,
+                    user_id=self.user.id,
+                    action_type=tool_name
+                )
+                
+                if not is_allowed:
+                    return {
+                        "success": False,
+                        "error": f"Consent required: {reason}",
+                        "requires_consent": True,
+                        "action_type": tool_name
+                    }
+            
             # Execute tool
             result = await self._execute_tool(tool_name, tool_input)
             

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import json
 import logging
+import time
 from datetime import datetime
 
 from app.core.database import get_db
@@ -123,16 +124,15 @@ async def chat_stream(
         headers=headers
     )
 
-@router.websocket("/ws/{token}")
+@router.websocket("/ws")
 async def websocket_endpoint(
     websocket: WebSocket,
-    token: str,
     db: Session = Depends(get_db)
 ):
     """
     WebSocket endpoint for real-time updates
     
-    Client connects with JWT token in path
+    Client connects with JWT token as query parameter
     Receives real-time notifications about:
     - Task updates
     - Sync completions
@@ -142,10 +142,20 @@ async def websocket_endpoint(
     Send "ping" to receive "pong" for keepalive
     """
     try:
+        # Accept the connection first
+        await websocket.accept()
+        
+        # Get token from query parameters
+        token = websocket.query_params.get("token")
+        if not token:
+            await websocket.close(code=1008, reason="Token required")
+            return
+            
         # Verify JWT token
         try:
             payload = verify_token(token)
             user_id = int(payload.get("sub"))
+            logger.info(f"WebSocket token validated for user {user_id}")
         except Exception as e:
             logger.warning(f"WebSocket auth failed: {e}")
             await websocket.close(code=1008, reason="Invalid token")
@@ -157,7 +167,7 @@ async def websocket_endpoint(
             await websocket.close(code=1008, reason="User not found")
             return
         
-        # Connect
+        # Connect to manager
         await manager.connect(websocket, user_id)
         logger.info(f"WebSocket connected for user {user_id}")
         
@@ -176,7 +186,58 @@ async def websocket_endpoint(
                     message = json.loads(data)
                     message_type = message.get("type")
                     
-                    if message_type == "subscribe":
+                    if message_type == "chat":
+                        # Handle chat messages
+                        content = message.get("data", {}).get("content", "")
+                        message_id = message.get("messageId", f"msg-{int(time.time())}")
+                        
+                        if content:
+                            # Create agent and stream response
+                            agent = create_agent(db, user, request=None)
+                            
+                            # Send stream start
+                            await manager.send_personal_message(
+                                {
+                                    "type": "stream_start",
+                                    "messageId": message_id,
+                                    "timestamp": datetime.utcnow().isoformat()
+                                },
+                                websocket
+                            )
+                            
+                            # Stream the response
+                            try:
+                                async for event in agent.chat_stream(user_message=content):
+                                    event_data = {
+                                        "type": "stream_chunk",
+                                        "messageId": message_id,
+                                        "data": event,
+                                        "timestamp": datetime.utcnow().isoformat()
+                                    }
+                                    await manager.send_personal_message(event_data, websocket)
+                                
+                                # Send stream end
+                                await manager.send_personal_message(
+                                    {
+                                        "type": "stream_end",
+                                        "messageId": message_id,
+                                        "timestamp": datetime.utcnow().isoformat()
+                                    },
+                                    websocket
+                                )
+                            except Exception as e:
+                                logger.error(f"Error streaming chat response: {e}")
+                                await manager.send_personal_message(
+                                    {
+                                        "type": "error",
+                                        "messageId": message_id,
+                                        "data": {"error": str(e)},
+                                        "timestamp": datetime.utcnow().isoformat()
+                                    },
+                                    websocket
+                                )
+                    
+                    elif message_type == "subscribe":
                         # Handle subscription to specific events
                         events = message.get("events", [])
                         await manager.send_personal_message(

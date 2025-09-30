@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     Pydantic automatically loads from .env file in the working directory.
     """
     
+    class Config:
+        env_file = "../.env"  # Look for .env in parent directory
+        env_file_encoding = "utf-8"
+    
     # ============================================================================
     # APPLICATION SETTINGS
     # ============================================================================

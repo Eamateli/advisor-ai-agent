@@ -36,6 +36,8 @@ services:
     build: ./backend
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/financial_advisor_agent
       REDIS_URL: redis://redis:6379
@@ -48,10 +50,18 @@ services:
       redis:
         condition: service_healthy
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Celery Worker (for background tasks)
   celery-worker:
     build: ./backend
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/financial_advisor_agent
       REDIS_URL: redis://redis:6379
@@ -68,6 +78,8 @@ services:
   # Celery Beat (for periodic tasks)
   celery-beat:
     build: ./backend
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/financial_advisor_agent
       REDIS_URL: redis://redis:6379
@@ -86,11 +98,13 @@ services:
     build: ./backend
     ports:
       - "5555:5555"
+    env_file:
+      - .env
     environment:
       REDIS_URL: redis://redis:6379
     depends_on:
       - redis
-    command: celery -A app.tasks.celery_app flower --port=5555
+    command: python -m celery -A app.tasks.celery_app flower --port=5555
 
   # Frontend (React)
   frontend:

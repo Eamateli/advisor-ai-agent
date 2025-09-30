@@ -61,10 +61,23 @@ async def lifespan(app: FastAPI):
         
         logger.info("[PASS] All required production secrets validated")
     
-    # Initialize database tables
-    from app.core.database import engine, Base
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database tables initialized")
+    # Initialize database tables (use Alembic migrations instead)
+    # Note: pgvector extension must be enabled first via migrations
+    # Run: alembic upgrade head
+    try:
+        from app.core.database import engine
+        # Test database connection
+        with engine.connect() as conn:
+            conn.execute("SELECT 1")
+        logger.info("Database connection successful")
+    except Exception as e:
+        logger.warning(f"Database connection issue: {e}")
+    
+    # Note: Tables should be created via Alembic migrations, not here
+    # Uncomment below only for development without migrations:
+    # from app.core.database import Base
+    # Base.metadata.create_all(bind=engine)
+    logger.info("Database ready (use 'alembic upgrade head' to create tables)")
     
     # Initialize vector indexes if needed
     try:
@@ -118,8 +131,6 @@ if isinstance(settings.ALLOWED_ORIGINS, str):
 else:
     origins = [settings.ALLOWED_ORIGINS]
 
-if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
-    origins.append(settings.FRONTEND_URL)
 if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
     origins.append(settings.FRONTEND_URL)
 

@@ -1,8 +1,9 @@
 // frontend/src/services/chat.ts - ENHANCED WITH WEBSOCKET STREAMING
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { chatApi } from './api';
+import { chatApi, api } from './api';
 import { wsService } from './websocket';
 import { ChatMessage } from '../types';
+import { useAuthStore } from '../store/auth';
 import toast from 'react-hot-toast';
 
 interface UseChatStreamReturn {
@@ -17,31 +18,21 @@ interface UseChatStreamReturn {
 }
 
 export function useChatStream(): UseChatStreamReturn {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [useWebSocket, setUseWebSocket] = useState(true); // Toggle between WebSocket and HTTP
-  
+  const [useWebSocket, setUseWebSocket] = useState(true);
   const currentStreamIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
 
   /**
    * Clear all messages
    */
   const clearMessages = useCallback(() => {
     setMessages([]);
+    currentStreamIdRef.current = null;
     setIsStreaming(false);
     setIsLoading(false);
-    currentStreamIdRef.current = null;
   }, []);
 
   /**
@@ -53,9 +44,154 @@ export function useChatStream(): UseChatStreamReturn {
   }, []);
 
   /**
+   * Send message using HTTP (Server-Sent Events)
+   */
+  const sendMessageWithHTTP = useCallback(async (content: string) => {
+    setIsLoading(true);
+    setIsStreaming(true);
+
+    // Add user message immediately
+    const userMessage: ChatMessage = {
+      id: `msg-${Date.now()}-user`,
+      role: 'user',
+      content,
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, userMessage]);
+
+    // Create assistant message placeholder for streaming
+    const assistantMessageId = `msg-${Date.now()}-assistant`;
+    const assistantMessage: ChatMessage = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      created_at: new Date().toISOString(),
+      isStreaming: true,
+    };
+    setMessages((prev) => [...prev, assistantMessage]);
+    currentStreamIdRef.current = assistantMessageId;
+
+    try {
+      // Use the streaming API endpoint
+      const response = await api.stream('/chat/stream', { message: content });
+      const reader = response.getReader();
+      const decoder = new TextDecoder();
+
+      let buffer = '';
+      let accumulatedContent = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const eventData = JSON.parse(line.slice(6));
+              switch (eventData.type) {
+                case 'content':
+                  const chunk = eventData.content || '';
+                  accumulatedContent += chunk;
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, content: msg.content + chunk }
+                        : msg
+                    )
+                  );
+                  break;
+                case 'tool_use_start':
+                  console.log('Tool use started:', eventData.tool_name);
+                  break;
+                case 'tool_result':
+                  console.log('Tool result:', eventData.result);
+                  break;
+                case 'done':
+                  console.log('Stream completed');
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, isStreaming: false }
+                        : msg
+                    )
+                  );
+                  setIsStreaming(false);
+                  setIsLoading(false);
+                  currentStreamIdRef.current = null;
+                  return;
+                case 'error':
+                  console.error('Stream error:', eventData.error);
+                  setMessages((prev) =>
+                    prev.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? {
+                            ...msg,
+                            content: msg.content || 'Sorry, an error occurred while processing your request.',
+                            isStreaming: false,
+                          }
+                        : msg
+                    )
+                  );
+                  setIsStreaming(false);
+                  setIsLoading(false);
+                  currentStreamIdRef.current = null;
+                  toast.error(`Error: ${eventData.error}`);
+                  return;
+              }
+            } catch (parseError) {
+              console.error('Failed to parse SSE event:', parseError);
+            }
+          }
+        }
+      }
+
+      // Finalize message if stream ended without 'done' event
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? { ...msg, isStreaming: false }
+            : msg
+        )
+      );
+      setIsStreaming(false);
+      setIsLoading(false);
+      currentStreamIdRef.current = null;
+
+    } catch (error: any) {
+      console.error('Failed to send message:', error);
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === assistantMessageId
+            ? {
+                ...msg,
+                content: msg.content || 'Sorry, I encountered an error. Please try again.',
+                isStreaming: false,
+              }
+            : msg
+        )
+      );
+      setIsStreaming(false);
+      setIsLoading(false);
+      currentStreamIdRef.current = null;
+      toast.error('Failed to send message');
+    }
+  }, []);
+
+  /**
    * Send message using WebSocket (REAL STREAMING)
    */
   const sendMessageWithWebSocket = useCallback(async (content: string) => {
+    // Check if WebSocket is connected
+    if (!wsService.isConnected()) {
+      console.log('⚠️ WebSocket not connected, falling back to HTTP');
+      await sendMessageWithHTTP(content);
+      return;
+    }
+
     // Add user message immediately
     const userMessage: ChatMessage = {
       id: `msg-${Date.now()}-user`,
@@ -83,7 +219,7 @@ export function useChatStream(): UseChatStreamReturn {
 
     // Ensure WebSocket is connected
     if (!wsService.isConnected()) {
-      const token = localStorage.getItem('access_token');
+      const token = useAuthStore.getState().token;
       
       if (!token) {
         toast.error('Not authenticated. Please log in.');
@@ -92,13 +228,12 @@ export function useChatStream(): UseChatStreamReturn {
         return;
       }
 
+      // Try to connect WebSocket
       wsService.connect(token);
       
-      // Wait for connection with timeout
-      const connectionTimeout = 5000;
-      const startTime = Date.now();
-      
-      while (!wsService.isConnected() && Date.now() - startTime < connectionTimeout) {
+      // Wait a bit for connection
+      for (let i = 0; i < 10; i++) {
+        if (wsService.isConnected()) break;
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       
@@ -155,7 +290,6 @@ export function useChatStream(): UseChatStreamReturn {
         setIsStreaming(false);
         setIsLoading(false);
         currentStreamIdRef.current = null;
-        toast.success('Response complete');
       },
       
       // onError - handle errors
@@ -177,65 +311,7 @@ export function useChatStream(): UseChatStreamReturn {
         toast.error(`Streaming error: ${error}`);
       }
     );
-  }, []);
-
-  /**
-   * Send message using HTTP (FALLBACK - NO STREAMING)
-   */
-  const sendMessageWithHTTP = useCallback(async (content: string) => {
-    setIsLoading(true);
-
-    // Add user message immediately
-    const userMessage: ChatMessage = {
-      id: `msg-${Date.now()}-user`,
-      role: 'user',
-      content,
-      created_at: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, userMessage]);
-
-    // Create abort controller for cancellation
-    abortControllerRef.current = new AbortController();
-
-    try {
-      // Call your existing API
-      const response = await chatApi.sendMessage(content);
-
-      const assistantMessage: ChatMessage = {
-        id: `msg-${Date.now()}-assistant`,
-        role: 'assistant',
-        content: response.response || response.content || 'No response',
-        created_at: new Date().toISOString(),
-        tool_calls: response.tool_calls,
-      };
-
-      setMessages((prev) => [...prev, assistantMessage]);
-      toast.success('Message sent');
-    } catch (error: any) {
-      // Don't show error if request was aborted
-      if (error.name === 'AbortError') {
-        toast('Request cancelled', { icon: 'ℹ️' });
-        return;
-      }
-
-      console.error('Failed to send message:', error);
-      
-      const errorMessage: ChatMessage = {
-        id: `msg-${Date.now()}-error`,
-        role: 'assistant',
-        content: error?.response?.data?.error || 'Sorry, I encountered an error. Please try again.',
-        created_at: new Date().toISOString(),
-      };
-      
-      setMessages((prev) => [...prev, errorMessage]);
-      toast.error('Failed to send message');
-    } finally {
-      setIsLoading(false);
-      setIsStreaming(false);
-      abortControllerRef.current = null;
-    }
-  }, []);
+  }, [sendMessageWithHTTP]);
 
   /**
    * Main sendMessage function - routes to WebSocket or HTTP
@@ -247,13 +323,27 @@ export function useChatStream(): UseChatStreamReturn {
         return;
       }
 
-      if (useWebSocket) {
-        await sendMessageWithWebSocket(content);
-      } else {
-        await sendMessageWithHTTP(content);
+      console.log('🚀 Sending message:', { 
+        content, 
+        useWebSocket, 
+        wsConnected: wsService.isConnected(),
+        wsStatus: wsService.getStatus()
+      });
+
+      try {
+        if (useWebSocket) {
+          console.log('📡 Using WebSocket for message');
+          await sendMessageWithWebSocket(content);
+        } else {
+          console.log('🌐 Using HTTP for message');
+          await sendMessageWithHTTP(content);
+        }
+      } catch (error) {
+        console.error('❌ Error in sendMessage:', error);
+        toast.error('Failed to send message. Please try again.');
       }
     },
-    [useWebSocket, sendMessageWithWebSocket, sendMessageWithHTTP]
+    [useWebSocket]
   );
 
   /**

@@ -10,16 +10,13 @@ import { Button } from '../ui/Button';
 import { 
   PaperAirplaneIcon,
   StopIcon,
-  PlusIcon,
-  MicrophoneIcon,
-  FaceSmileIcon,
   CalendarIcon
 } from '@heroicons/react/24/outline';
 
 const chatSchema = z.object({
   message: z
     .string()
-    .min(1, 'Message cannot be empty')
+    .min(1, 'Please enter a message')
     .max(constants.MAX_MESSAGE_LENGTH, `Message too long (max ${constants.MAX_MESSAGE_LENGTH} characters)`),
 });
 
@@ -47,10 +44,11 @@ export function ChatInput({
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors, isValid },
   } = useForm<ChatFormData>({
     resolver: zodResolver(chatSchema),
-    mode: 'onChange',
+    mode: 'onBlur', // Changed from 'onChange' to 'onBlur' to reduce validation frequency
   });
 
   const messageValue = watch('message') || '';
@@ -75,22 +73,26 @@ export function ChatInput({
   }, [disabled]);
 
   const onSubmit = async (data: ChatFormData) => {
-    if (disabled || isStreaming) return;
+    if (disabled || isStreaming) {
+      return;
+    }
 
     const message = data.message.trim();
-    if (!message) return;
+    if (!message) {
+      return;
+    }
 
     try {
-      // Clear form immediately for better UX
-      reset();
-      setCharCount(0);
-
       // Send message through prop or service
       if (onSendMessage) {
-        onSendMessage(message);
+        await onSendMessage(message);
       } else {
         await sendMessage(message);
       }
+
+      // Clear form after successful send
+      reset();
+      setCharCount(0);
 
       // Focus back to textarea
       if (textareaRef.current) {
@@ -98,13 +100,17 @@ export function ChatInput({
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      // Don't clear form on error so user can retry
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(onSubmit)();
+      const message = messageValue.trim();
+      if (message && !disabled && !isStreaming) {
+        handleSubmit(onSubmit)();
+      }
     }
   };
 
@@ -112,31 +118,24 @@ export function ChatInput({
     stopStream();
   };
 
+
+
   const isDisabled = disabled || isStreaming;
   const showCharCount = charCount > constants.MAX_MESSAGE_LENGTH * 0.8;
+  
 
   return (
     <div className={cn('w-full max-w-4xl mx-auto', className)}>
       <form onSubmit={handleSubmit(onSubmit)} className="relative">
         {/* Main input container */}
         <div className={cn(
-          'relative flex items-end gap-2 p-3 rounded-2xl',
+          'relative flex items-end gap-1 sm:gap-2 p-2 sm:p-3 rounded-2xl',
           'bg-background border-2 border-border',
-          'focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/10',
-          'transition-all duration-200 shadow-sm',
+          'focus-within:border-border focus-within:ring-0 focus-within:outline-none',
+          'shadow-sm',
           isDisabled && 'opacity-60'
         )}>
-          {/* Add context button */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="flex-shrink-0 w-9 h-9 rounded-full"
-            disabled={isDisabled}
-            title="Add context"
-          >
-            <PlusIcon className="w-5 h-5" />
-          </Button>
+          {/* Add context button - hide on very small screens */}
 
           {/* Message textarea */}
           <div className="flex-1 min-w-0 relative">
@@ -150,7 +149,7 @@ export function ChatInput({
               className={cn(
                 'w-full resize-none border-0 bg-transparent',
                 'text-sm text-foreground placeholder:text-muted-foreground',
-                'focus:outline-none auto-resize',
+                'focus:outline-none focus:ring-0 focus:border-0 auto-resize',
                 'disabled:cursor-not-allowed disabled:opacity-50',
                 'min-h-[24px] max-h-[200px] py-0.5',
                 errors.message && 'text-destructive'
@@ -170,41 +169,21 @@ export function ChatInput({
             )}
           </div>
 
-          {/* Context selector button */}
+          {/* Context selector button - hide on mobile */}
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="flex-shrink-0 text-xs px-3 h-9 hidden sm:flex"
+            className="flex-shrink-0 text-xs px-2 sm:px-3 h-8 sm:h-9 hidden sm:flex"
             disabled={isDisabled}
             title="Select context"
+            onClick={() => {
+              // TODO: Implement context selection
+              console.log('Context selector clicked');
+            }}
           >
-            <CalendarIcon className="w-4 h-4 mr-1" />
-            <span className="hidden md:inline">All meetings</span>
-          </Button>
-
-          {/* Emoji/Reactions button (future feature) */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="w-9 h-9 rounded-full flex-shrink-0 hidden sm:flex"
-            disabled={true}
-            title="Add reaction (coming soon)"
-          >
-            <FaceSmileIcon className="w-5 h-5" />
-          </Button>
-
-          {/* Voice input button (future feature) */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="w-9 h-9 rounded-full flex-shrink-0"
-            disabled={true}
-            title="Voice input (coming soon)"
-          >
-            <MicrophoneIcon className="w-5 h-5" />
+            <CalendarIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+            <span className="hidden md:inline">General</span>
           </Button>
 
           {/* Send or Stop button */}
@@ -214,39 +193,47 @@ export function ChatInput({
               variant="destructive"
               size="icon"
               onClick={handleStop}
-              className="w-9 h-9 rounded-full flex-shrink-0"
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex-shrink-0"
               title="Stop generation"
             >
-              <StopIcon className="w-5 h-5" />
+              <StopIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           ) : (
             <Button
               type="submit"
               size="icon"
-              disabled={!isValid || isDisabled || !messageValue.trim()}
+              disabled={isDisabled}
+              onClick={(e) => {
+                e.preventDefault();
+                const message = messageValue.trim();
+                if (message && !disabled && !isStreaming) {
+                  handleSubmit(onSubmit)();
+                }
+              }}
               className={cn(
-                'w-9 h-9 rounded-full flex-shrink-0',
-                (isValid && messageValue.trim() && !isDisabled)
+                'w-8 h-8 sm:w-9 sm:h-9 rounded-full flex-shrink-0',
+                (messageValue.trim() && !disabled && !isStreaming)
                   ? 'bg-primary hover:bg-primary/90' 
                   : 'bg-muted cursor-not-allowed'
               )}
               title="Send message"
             >
-              <PaperAirplaneIcon className="w-5 h-5" />
+              <PaperAirplaneIcon className="w-4 h-4 sm:w-5 sm:h-5" />
             </Button>
           )}
         </div>
 
-        {/* Error message */}
-        {errors.message && (
+        {/* Error message - only show for real validation errors, not empty field */}
+        {errors.message && messageValue.length > 0 && errors.message.type !== 'required' && (
           <div className="mt-2 text-sm text-destructive px-3">
             {errors.message.message}
           </div>
         )}
       </form>
 
-      {/* Helper text */}
-      <div className="mt-2 px-3 text-center">
+
+      {/* Helper text - hide on mobile */}
+      <div className="mt-2 px-3 text-center hidden sm:block">
         <span className="text-xs text-muted-foreground">
           Press <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border border-border">Enter</kbd> to send, 
           <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border border-border ml-1">Shift + Enter</kbd> for new line

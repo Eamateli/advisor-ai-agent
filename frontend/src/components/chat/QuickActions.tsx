@@ -20,20 +20,16 @@ interface QuickActionsProps {
 // This prevents a new array from being created on every render
 const defaultActions: QuickAction[] = [
   {
-    id: 'meetings-with',
-    text: 'Find meetings I\'ve had with',
-    avatars: [
-      { name: 'Bill' },
-      { name: 'Tim' },
-    ],
+    id: 'general-help',
+    text: 'How can you help me?',
   },
   {
-    id: 'upcoming',
-    text: 'Show my upcoming meetings this week',
+    id: 'get-started',
+    text: 'What can I ask you about?',
   },
   {
-    id: 'summary',
-    text: 'Summarize my meetings from last month',
+    id: 'features',
+    text: 'What features do you have?',
   },
 ];
 

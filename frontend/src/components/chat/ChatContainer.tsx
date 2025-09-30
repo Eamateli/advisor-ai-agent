@@ -13,7 +13,7 @@ interface ChatContainerProps {
 }
 
 export function ChatContainer({ className }: ChatContainerProps) {
-  const { messages, isLoading, sendMessage } = useChatStream();
+  const { messages, isLoading, sendMessage, clearMessages } = useChatStream();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -24,16 +24,27 @@ export function ChatContainer({ className }: ChatContainerProps) {
     }
   }, [messages]);
 
+  // Listen for clear chat event from sidebar
+  useEffect(() => {
+    const handleClearChat = () => {
+      console.log('ChatContainer: Received clearChat event, clearing messages');
+      clearMessages();
+    };
+
+    window.addEventListener('clearChat', handleClearChat);
+    return () => window.removeEventListener('clearChat', handleClearChat);
+  }, [clearMessages]);
+
   const hasMessages = messages.length > 0;
 
   return (
     <div className={cn('flex flex-col h-full bg-background', className)}>
-      {/* Context Header */}
-      <ContextHeader
-        contextLabel="all meetings"
-        startDate="2024-11-17"
-        endDate="2025-05-13"
-      />
+      {/* Context Header - only show when there are messages */}
+      {hasMessages && (
+        <ContextHeader
+          contextLabel="current conversation"
+        />
+      )}
 
       {/* Main chat area */}
       <div 

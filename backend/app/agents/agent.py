@@ -90,11 +90,11 @@ class FinancialAdvisorAgent:
                 
                 if event_type == "content":
                     # Stream text to user
-                    text = event.get("text", "")
+                    text = event.get("content", "")
                     current_text += text
                     yield {
                         "type": "content",
-                        "text": text
+                        "content": text
                     }
                 
                 elif event_type == "tool_use_start":
