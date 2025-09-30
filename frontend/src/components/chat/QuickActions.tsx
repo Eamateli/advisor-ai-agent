@@ -19,18 +19,7 @@ interface QuickActionsProps {
 // ✅ CRITICAL FIX: Move defaultActions OUTSIDE the component
 // This prevents a new array from being created on every render
 const defaultActions: QuickAction[] = [
-  {
-    id: 'general-help',
-    text: 'How can you help me?',
-  },
-  {
-    id: 'get-started',
-    text: 'What can I ask you about?',
-  },
-  {
-    id: 'features',
-    text: 'What features do you have?',
-  },
+  // Removed placeholder actions as requested
 ];
 
 export function QuickActions({ onActionClick }: QuickActionsProps) {
@@ -46,6 +35,11 @@ export function QuickActions({ onActionClick }: QuickActionsProps) {
       onActionClick(messageText);
     }
   };
+
+  // Don't render anything if no actions
+  if (defaultActions.length === 0) {
+    return null;
+  }
 
   return (
     <div className="border-t border-border bg-muted/30 py-4">

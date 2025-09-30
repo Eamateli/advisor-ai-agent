@@ -48,16 +48,26 @@ async def check_chat_rate_limit(
     user: User = Depends(get_current_user)
 ):
     """Check rate limits for chat endpoint"""
-    await rate_limiter.check_request(
-        request=request,
-        user_id=user.id,
-        max_per_minute=10,
-        max_per_hour=100
-    )
+    try:
+        await rate_limiter.check_request(
+            request=request,
+            user_id=user.id,
+            max_per_minute=10,
+            max_per_hour=100
+        )
+    except Exception as e:
+        logger.warning(f"Rate limiting disabled: {e}")
+        # Continue without rate limiting if Redis is not available
+        pass
 
 # ============================================================================
 # CHAT ENDPOINTS
 # ============================================================================
+
+@router.get("/test")
+async def chat_test():
+    """Simple test endpoint to verify chat API is working"""
+    return {"status": "chat API is working", "message": "Chat endpoint is accessible"}
 
 @router.post("/stream")
 async def chat_stream(

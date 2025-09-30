@@ -41,6 +41,7 @@ async def lifespan(app: FastAPI):
 
     # Add production validation
     if settings.ENVIRONMENT == "production":
+        # Core required secrets (app won't work without these)
         required_secrets = {
             "SECRET_KEY": settings.SECRET_KEY,
             "ENCRYPTION_KEY": settings.ENCRYPTION_KEY,
@@ -48,6 +49,10 @@ async def lifespan(app: FastAPI):
             "OPENAI_API_KEY": settings.OPENAI_API_KEY,
             "GOOGLE_CLIENT_ID": settings.GOOGLE_CLIENT_ID,
             "GOOGLE_CLIENT_SECRET": settings.GOOGLE_CLIENT_SECRET,
+        }
+        
+        # Optional integrations (app works without these)
+        optional_integrations = {
             "HUBSPOT_CLIENT_ID": settings.HUBSPOT_CLIENT_ID,
             "HUBSPOT_CLIENT_SECRET": settings.HUBSPOT_CLIENT_SECRET,
         }
@@ -58,6 +63,12 @@ async def lifespan(app: FastAPI):
             error_msg = f"[FAIL] CRITICAL: Missing required secrets in production: {', '.join(missing)}"
             logger.error(error_msg)
             raise ValueError(error_msg)
+        
+        # Check optional integrations
+        missing_optional = [name for name, value in optional_integrations.items() if not value]
+        if missing_optional:
+            logger.warning(f"Optional integrations not configured: {', '.join(missing_optional)}")
+            logger.info("App will work without these integrations")
         
         logger.info("[PASS] All required production secrets validated")
     
@@ -125,14 +136,18 @@ app.add_middleware(
     allowed_hosts=settings.ALLOWED_HOSTS + ["*.onrender.com"] if settings.ENVIRONMENT == "production" else ["*"]
 )
 
-# CORS Configuration
-if isinstance(settings.ALLOWED_ORIGINS, str):
-    origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",")]
+# CORS Configuration - Allow all origins in development
+if settings.ENVIRONMENT == "development":
+    origins = ["*"]  # Allow all origins in development
 else:
-    origins = [settings.ALLOWED_ORIGINS]
+    # Production CORS configuration
+    if isinstance(settings.ALLOWED_ORIGINS, str):
+        origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",")]
+    else:
+        origins = [settings.ALLOWED_ORIGINS]
 
-if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
-    origins.append(settings.FRONTEND_URL)
+    if settings.FRONTEND_URL and settings.FRONTEND_URL not in origins:
+        origins.append(settings.FRONTEND_URL)
 
 app.add_middleware(
     CORSMiddleware,

@@ -120,12 +120,22 @@ class ApiClient {
   // Stream method for Server-Sent Events
   async stream(url: string, data?: any): Promise<ReadableStream> {
     const authStore = useAuthStore.getState();
+    
+    // Validate token before making request
+    if (!authStore.token || !authStore.isTokenValid()) {
+      throw new Error('Authentication required. Please log in again.');
+    }
+
     const headers = {
       'Content-Type': 'application/json',
       'Accept': 'text/event-stream',
       'Cache-Control': 'no-cache',
-      ...(authStore.token ? { Authorization: `Bearer ${authStore.token}` } : {}),
+      'Authorization': `Bearer ${authStore.token}`,
     };
+
+    console.log('📡 Making streaming request to:', `${config.API_URL}${url}`);
+    console.log('📡 Request headers:', headers);
+    console.log('📡 Request data:', data);
 
     const response = await fetch(`${config.API_URL}${url}`, {
       method: 'POST',
@@ -133,8 +143,12 @@ class ApiClient {
       body: JSON.stringify(data || {}),
     });
 
+    console.log('📡 Response status:', response.status);
+    console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('📡 Stream error:', errorText);
       throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
     }
 
@@ -142,6 +156,7 @@ class ApiClient {
       throw new Error('No response body available for streaming');
     }
 
+    console.log('📡 Stream connection established');
     return response.body;
   }
 }
