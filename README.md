@@ -4,7 +4,7 @@
 
 [![Deployment Status](https://img.shields.io/badge/Deployment-Ready-green)](https://render.com)
 [![Security](https://img.shields.io/badge/Security-Enterprise%20Grade-blue)](https://github.com)
-[![Challenge](https://img.shields.io/badge/Challenge-$3,000%20Prize-gold)](https://github.com)
+
 
 ## Overview
 
