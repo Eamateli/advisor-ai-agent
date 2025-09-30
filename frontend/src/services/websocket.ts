@@ -40,8 +40,13 @@ class WebSocketService {
    */
   connect(token?: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
+      console.log('✅ WebSocket already connected');
       return;
+    }
+
+    // Disconnect existing connection if any
+    if (this.ws) {
+      this.disconnect();
     }
 
     if (token) {
@@ -52,11 +57,13 @@ class WebSocketService {
       if (authStore.token && authStore.isTokenValid()) {
         this.accessToken = authStore.token;
       } else {
-        console.error('No valid token available for WebSocket connection');
+        console.error('❌ No valid token available for WebSocket connection');
         this.setStatus('error');
         return;
       }
     }
+
+    console.log('🔄 Connecting WebSocket with token:', this.accessToken ? 'present' : 'missing');
 
     this.setStatus('connecting');
 

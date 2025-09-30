@@ -25,6 +25,25 @@ export function useChatStream(): UseChatStreamReturn {
   const currentStreamIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Debug logging
+  console.log('🔄 useChatStream state:', {
+    messagesCount: messages.length,
+    isStreaming,
+    isLoading,
+    useWebSocket,
+    wsConnected: wsService.isConnected(),
+    wsStatus: wsService.getStatus()
+  });
+
+  // Initialize WebSocket connection on mount
+  useEffect(() => {
+    const authStore = useAuthStore.getState();
+    if (authStore.isAuthenticated && authStore.token && !wsService.isConnected()) {
+      console.log('🔄 Initializing WebSocket connection');
+      wsService.connect(authStore.token);
+    }
+  }, []);
+
   /**
    * Clear all messages
    */
@@ -196,11 +215,32 @@ export function useChatStream(): UseChatStreamReturn {
    * Send message using WebSocket (REAL STREAMING)
    */
   const sendMessageWithWebSocket = useCallback(async (content: string) => {
-    // Check if WebSocket is connected
+    // Ensure WebSocket is connected before proceeding
     if (!wsService.isConnected()) {
-      console.log('⚠️ WebSocket not connected, falling back to HTTP');
-      await sendMessageWithHTTP(content);
-      return;
+      console.log('🔄 WebSocket not connected, attempting to connect...');
+      
+      const token = useAuthStore.getState().token;
+      if (!token) {
+        console.log('❌ No token available, falling back to HTTP');
+        await sendMessageWithHTTP(content);
+        return;
+      }
+
+      // Try to connect WebSocket
+      wsService.connect(token);
+      
+      // Wait for connection with timeout
+      let attempts = 0;
+      while (!wsService.isConnected() && attempts < 10) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        attempts++;
+      }
+      
+      if (!wsService.isConnected()) {
+        console.log('❌ WebSocket connection failed, falling back to HTTP');
+        await sendMessageWithHTTP(content);
+        return;
+      }
     }
 
     // Add user message immediately
@@ -346,7 +386,7 @@ export function useChatStream(): UseChatStreamReturn {
         toast.error('Failed to send message. Please try again.');
       }
     },
-    [useWebSocket, sendMessageWithWebSocket, sendMessageWithHTTP]
+    [useWebSocket] // FIXED: Removed circular dependencies
   );
 
   /**

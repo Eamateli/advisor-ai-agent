@@ -19,11 +19,11 @@ export function EmptyState() {
       </div>
 
       <h2 className="text-2xl font-semibold text-foreground mb-2 text-center">
-        I can answer questions about your meetings
+        Start a conversation
       </h2>
       
       <p className="text-muted-foreground text-center max-w-md mb-8">
-        What do you want to know?
+        Type a message below to get started
       </p>
 
     </div>

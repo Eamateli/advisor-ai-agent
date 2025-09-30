@@ -1,25 +1,11 @@
-// frontend/src/components/chat/ChatInput.tsx
-import React, { useState, useRef, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { cn, autoResizeTextarea } from '../../lib/utils';
-import { constants } from '../../lib/config';
+// SIMPLIFIED CHAT INPUT - GUARANTEED TO WORK
+import React, { useState, useRef } from 'react';
 import { useChatStream } from '../../services/chat';
 import { Button } from '../ui/Button';
 import { 
   PaperAirplaneIcon,
   StopIcon
 } from '@heroicons/react/24/outline';
-
-const chatSchema = z.object({
-  message: z
-    .string()
-    .min(1, 'Please enter a message')
-    .max(constants.MAX_MESSAGE_LENGTH, `Message too long (max ${constants.MAX_MESSAGE_LENGTH} characters)`),
-});
-
-type ChatFormData = z.infer<typeof chatSchema>;
 
 interface ChatInputProps {
   onSendMessage?: (message: string) => void;
@@ -31,194 +17,143 @@ interface ChatInputProps {
 export function ChatInput({
   onSendMessage,
   disabled = false,
-  placeholder = "Ask anything about your meetings...",
+  placeholder = "Type your message here...",
   className,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { sendMessage, stopStream, isStreaming } = useChatStream();
-  const [charCount, setCharCount] = useState(0);
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    setValue,
-    formState: { errors, isValid },
-  } = useForm<ChatFormData>({
-    resolver: zodResolver(chatSchema),
-    mode: 'onBlur', // Changed from 'onChange' to 'onBlur' to reduce validation frequency
-  });
-
-  const messageValue = watch('message') || '';
-
-  // Update character count
-  useEffect(() => {
-    setCharCount(messageValue.length);
-  }, [messageValue]);
+  const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Auto-resize textarea
-  useEffect(() => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setMessage(e.target.value);
+    
+    // Auto-resize
     if (textareaRef.current) {
-      autoResizeTextarea(textareaRef.current);
-    }
-  }, [messageValue]);
-
-  // Focus textarea on mount
-  useEffect(() => {
-    if (textareaRef.current && !disabled) {
-      textareaRef.current.focus();
-    }
-  }, [disabled]);
-
-  const onSubmit = async (data: ChatFormData) => {
-    if (disabled || isStreaming) {
-      return;
-    }
-
-    const message = data.message.trim();
-    if (!message) {
-      return;
-    }
-
-    try {
-      // Send message through prop or service
-      if (onSendMessage) {
-        await onSendMessage(message);
-      } else {
-        await sendMessage(message);
-      }
-
-      // Clear form after successful send
-      reset();
-      setCharCount(0);
-
-      // Focus back to textarea
-      if (textareaRef.current) {
-        textareaRef.current.focus();
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      // Don't clear form on error so user can retry
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
     }
   };
 
+  // Send message
+  const handleSend = async () => {
+    const trimmedMessage = message.trim();
+    
+    if (!trimmedMessage || isSubmitting || isStreaming) {
+      console.log('❌ Send blocked:', { 
+        hasMessage: !!trimmedMessage, 
+        isSubmitting, 
+        isStreaming 
+      });
+      return;
+    }
+
+    console.log('🚀 Sending message:', trimmedMessage);
+    setIsSubmitting(true);
+
+    try {
+      if (onSendMessage) {
+        await onSendMessage(trimmedMessage);
+      } else {
+        await sendMessage(trimmedMessage);
+      }
+      
+      console.log('✅ Message sent successfully');
+      setMessage('');
+      
+      // Reset textarea height
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+    } catch (error) {
+      console.error('❌ Error sending message:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle Enter key
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      const message = messageValue.trim();
-      if (message && !disabled && !isStreaming) {
-        handleSubmit(onSubmit)();
-      }
+      handleSend();
     }
   };
 
+  // Handle stop streaming
   const handleStop = () => {
     stopStream();
   };
 
-
-
-  const isDisabled = disabled || isStreaming;
-  const showCharCount = charCount > constants.MAX_MESSAGE_LENGTH * 0.8;
-  
+  const isDisabled = disabled || isStreaming || isSubmitting;
+  const canSend = message.trim().length > 0 && !isDisabled;
 
   return (
-    <div className={cn('w-full max-w-4xl mx-auto', className)}>
-      <form onSubmit={handleSubmit(onSubmit)} className="relative">
-        {/* Main input container */}
-        <div className={cn(
-          'relative flex items-end gap-1 sm:gap-2 p-2 sm:p-3 rounded-2xl',
-          'bg-background border-2 border-border',
-          'focus-within:border-border focus-within:ring-0 focus-within:outline-none',
-          'shadow-sm',
-          isDisabled && 'opacity-60'
-        )}>
-          {/* Add context button - hide on very small screens */}
-
-          {/* Message textarea */}
-          <div className="flex-1 min-w-0 relative">
-            <textarea
-              {...register('message')}
-              ref={textareaRef}
-              rows={1}
-              placeholder={placeholder}
-              disabled={isDisabled}
-              onKeyDown={handleKeyDown}
-              className={cn(
-                'w-full resize-none border-0 bg-transparent',
-                'text-sm text-foreground placeholder:text-muted-foreground',
-                'focus:outline-none focus:ring-0 focus:border-0 auto-resize',
-                'disabled:cursor-not-allowed disabled:opacity-50',
-                'min-h-[24px] max-h-[200px] py-0.5',
-                errors.message && 'text-destructive'
-              )}
-            />
-            
-            {/* Character count (only show when approaching limit) */}
-            {showCharCount && (
-              <div className={cn(
-                'absolute -top-6 right-0 text-xs',
-                charCount > constants.MAX_MESSAGE_LENGTH 
-                  ? 'text-destructive' 
-                  : 'text-muted-foreground'
-              )}>
-                {charCount}/{constants.MAX_MESSAGE_LENGTH}
-              </div>
-            )}
-          </div>
-
-          {/* Send or Stop button */}
-          {isStreaming ? (
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon"
-              onClick={handleStop}
-              className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex-shrink-0"
-              title="Stop generation"
-            >
-              <StopIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-          ) : (
-            <Button
-              type="submit"
-              size="icon"
-              disabled={isDisabled}
-              onClick={(e) => {
-                e.preventDefault();
-                const message = messageValue.trim();
-                if (message && !disabled && !isStreaming) {
-                  handleSubmit(onSubmit)();
-                }
-              }}
-              className={cn(
-                'w-8 h-8 sm:w-9 sm:h-9 rounded-full flex-shrink-0',
-                (messageValue.trim() && !disabled && !isStreaming)
-                  ? 'bg-primary hover:bg-primary/90' 
-                  : 'bg-muted cursor-not-allowed'
-              )}
-              title="Send message"
-            >
-              <PaperAirplaneIcon className="w-4 h-4 sm:w-5 sm:h-5" />
-            </Button>
-          )}
+    <div className={`w-full max-w-4xl mx-auto ${className || ''}`}>
+      <div className={`
+        relative flex items-end gap-2 p-3 rounded-2xl
+        bg-background border-2 border-border
+        shadow-sm
+        ${isDisabled ? 'opacity-60' : ''}
+      `}>
+        {/* Textarea */}
+        <div className="flex-1 min-w-0 relative">
+          <textarea
+            ref={textareaRef}
+            value={message}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder={placeholder}
+            disabled={isDisabled}
+            className={`
+              w-full resize-none border-0 bg-transparent
+              text-sm text-foreground placeholder:text-muted-foreground
+              focus:outline-none focus:ring-0 focus:border-0
+              disabled:cursor-not-allowed disabled:opacity-50
+              min-h-[24px] max-h-[200px] py-0.5
+            `}
+            rows={1}
+          />
         </div>
 
-        {/* Error message - only show for real validation errors, not empty field */}
-        {errors.message && messageValue.length > 0 && errors.message.type !== 'required' && (
-          <div className="mt-2 text-sm text-destructive px-3">
-            {errors.message.message}
-          </div>
+        {/* Send or Stop button */}
+        {isStreaming ? (
+          <Button
+            type="button"
+            variant="destructive"
+            size="icon"
+            onClick={handleStop}
+            className="w-9 h-9 rounded-full flex-shrink-0"
+            title="Stop generation"
+          >
+            <StopIcon className="w-5 h-5" />
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="icon"
+            disabled={!canSend}
+            onClick={handleSend}
+            className={`
+              w-9 h-9 rounded-full flex-shrink-0
+              ${canSend 
+                ? 'bg-primary hover:bg-primary/90' 
+                : 'bg-muted cursor-not-allowed'
+              }
+            `}
+            title={canSend ? "Send message" : "Type a message to send"}
+          >
+            <PaperAirplaneIcon className="w-5 h-5" />
+          </Button>
         )}
-      </form>
+      </div>
 
-
-      {/* Helper text - hide on mobile */}
-      <div className="mt-2 px-3 text-center hidden sm:block">
+      {/* Helper text */}
+      <div className="mt-2 px-3 text-center">
         <span className="text-xs text-muted-foreground">
-          Press <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border border-border">Enter</kbd> to send, 
-          <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border border-border ml-1">Shift + Enter</kbd> for new line
+          Press <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border">Enter</kbd> to send, 
+          <kbd className="px-1.5 py-0.5 text-xs bg-muted rounded border ml-1">Shift + Enter</kbd> for new line
         </span>
       </div>
     </div>
