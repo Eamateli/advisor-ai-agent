@@ -59,7 +59,6 @@ services:
   - type: web
     name: financial-advisor-frontend
     runtime: static
-    plan: starter  # Free tier is now 'starter'
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/build
     envVars:
