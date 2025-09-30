@@ -8,6 +8,7 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isLoggingOut: boolean;
 }
 
 interface AuthActions {
@@ -28,6 +29,7 @@ export const useAuthStore = create<AuthStore>()(
       token: null,
       isAuthenticated: false,
       isLoading: false,
+      isLoggingOut: false,
 
       // Actions
       login: (response: LoginResponse) => {
@@ -40,13 +42,20 @@ export const useAuthStore = create<AuthStore>()(
           isLoading: false,
         });
 
-        localStorage.setItem('access_token', access_token);
+        // Store token in memory only (not localStorage for security)
+        // The token will be automatically included in API requests via interceptors
+        // localStorage.setItem('access_token', access_token); // REMOVED FOR SECURITY
       },
 
       logout: () => {
-        localStorage.removeItem('auth-storage');
-        localStorage.removeItem('access_token');
+        // Set logout flag to prevent any API calls
+        set({ isLoggingOut: true });
         
+        // Note: Token is no longer stored in localStorage for security
+        // localStorage.removeItem('auth-storage');
+        // localStorage.removeItem('access_token');
+        
+        // Clear state but keep isLoggingOut true for a moment
         set({
           user: null,
           token: null,
@@ -54,7 +63,13 @@ export const useAuthStore = create<AuthStore>()(
           isLoading: false,
         });
         
-        window.location.href = '/login';
+        // Reset logout flag after a short delay to allow API calls to complete
+        setTimeout(() => {
+          set({ isLoggingOut: false });
+        }, 1000);
+        
+        // Don't force page reload - let the component handle navigation
+        // window.location.href = '/login';
       },
 
       updateUser: (userData: Partial<User>) => {

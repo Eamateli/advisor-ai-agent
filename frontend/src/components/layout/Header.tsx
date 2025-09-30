@@ -24,36 +24,36 @@ export function Header() {
   const wsConnected = useWsConnected();
   
   return (
-    <header className="flex items-center justify-between h-14 px-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="flex items-center justify-between h-14 px-3 sm:px-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       {/* Left section */}
-      <div className="flex items-center gap-3">
-        {/* Sidebar toggle */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        {/* Sidebar toggle - visible on both mobile and desktop */}
         <Button
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
-          className="md:hidden"
+          className="flex-shrink-0"
         >
           <Bars3Icon className="w-5 h-5" />
         </Button>
 
-        {/* App title */}
-        <div className="hidden md:flex items-center gap-2">
-          <h1 className="text-lg font-semibold text-foreground">
+        {/* App title - show on mobile too with proper spacing */}
+        <div className="flex items-center gap-2 min-w-0">
+          <h1 className="text-lg font-semibold text-foreground truncate">
             Ask Anything
           </h1>
           
-          {/* Connection status indicator */}
-          <div className="flex items-center gap-1">
+          {/* Connection status indicator - hide on very small screens */}
+          <div className="hidden sm:flex items-center gap-1">
             {!isOnline ? (
               <div className="flex items-center gap-1 text-destructive" title="No internet connection">
                 <ExclamationTriangleIcon className="w-4 h-4" />
-                <span className="text-xs hidden sm:inline">Offline</span>
+                <span className="text-xs hidden lg:inline">Offline</span>
               </div>
             ) : !wsConnected ? (
               <div className="flex items-center gap-1 text-yellow-600 dark:text-yellow-500" title="WebSocket disconnected">
                 <WifiIcon className="w-4 h-4" />
-                <span className="text-xs hidden sm:inline">Connecting...</span>
+                <span className="text-xs hidden lg:inline">Connecting...</span>
               </div>
             ) : null}
           </div>
@@ -61,31 +61,29 @@ export function Header() {
       </div>
 
       {/* Right section */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
         {/* Theme toggle */}
         <ThemeToggleSimple />
 
-        {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative">
+        {/* Notifications - hide on very small screens */}
+        <Button 
+          variant="ghost" 
+          size="icon" 
+          className="relative hidden sm:flex"
+          onClick={() => {
+            // TODO: Implement notifications panel
+            console.log('Notifications clicked');
+          }}
+        >
           <BellIcon className="w-5 h-5" />
         </Button>
 
-        {/* Settings */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setSettingsOpen(true)}
-          className="hidden md:flex"
-        >
-          <Cog6ToothIcon className="w-5 h-5" />
-        </Button>
-
-        {/* User avatar */}
+        {/* User avatar - responsive sizing */}
         {user && (
           <Button
             variant="ghost"
             size="sm"
-            className="gap-2"
+            className="gap-1 sm:gap-2"
             onClick={() => setSettingsOpen(true)}
           >
             <Avatar
@@ -93,7 +91,7 @@ export function Header() {
               src={user.profile_picture}
               size="sm"
             />
-            <span className="hidden lg:inline text-sm font-medium">
+            <span className="hidden sm:inline text-sm font-medium">
               {user.full_name || user.email.split('@')[0]}
             </span>
           </Button>

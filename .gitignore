@@ -52,3 +52,28 @@ logs/
 # Testing
 .coverage
 .pytest_cache/
+
+# Documentation files (keep README.md)
+*.md
+!README.md
+
+# Shell scripts (ignore development/helper scripts, keep essential ones)
+build.sh
+create-env.sh
+force-rebuild.sh
+restart-celery.sh
+start-backend.sh
+test-build.sh
+test-everything.sh
+verify-app.sh
+
+# Batch files
+*.bat
+
+# Docker and build files
+docker-compose.override.yml
+.dockerignore
+
+# Temporary files
+*.tmp
+*.temp

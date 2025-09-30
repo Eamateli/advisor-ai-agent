@@ -19,16 +19,16 @@ interface ThemeProviderState {
 }
 
 const initialState: ThemeProviderState = {
-  theme: 'system',
+  theme: 'dark',
   setTheme: () => null,
-  resolvedTheme: 'light',
+  resolvedTheme: 'dark',
 };
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function ThemeProvider({
   children,
-  defaultTheme = 'system',
+  defaultTheme = 'dark',
   storageKey = themeConfig.storageKey,
   ...props
 }: ThemeProviderProps) {
@@ -36,7 +36,7 @@ export function ThemeProvider({
     () => (localStorage.getItem(storageKey) as Theme) || defaultTheme
   );
 
-  const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('light');
+  const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>('dark');
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -135,18 +135,16 @@ export function ThemeToggle() {
 export function ThemeToggleSimple() {
   const { theme, setTheme, resolvedTheme } = useTheme();
 
-  const cycleTheme = useCallback(() => {
-    const themes: Theme[] = ['light', 'dark', 'system'];
-    const currentIndex = themes.indexOf(theme);
-    const nextIndex = (currentIndex + 1) % themes.length;
-    setTheme(themes[nextIndex]);
+  const toggleTheme = useCallback(() => {
+    // Simple toggle between light and dark
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   }, [theme, setTheme]);
 
   const Icon = resolvedTheme === 'dark' ? MoonIcon : SunIcon;
 
   return (
     <button
-      onClick={cycleTheme}
+      onClick={toggleTheme}
       className={cn(
         'inline-flex items-center justify-center',
         'w-9 h-9 rounded-md',
@@ -155,7 +153,7 @@ export function ThemeToggleSimple() {
         'transition-colors',
         'focus:outline-none focus:ring-2 focus:ring-primary/20'
       )}
-      title={`Current theme: ${theme}`}
+      title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
       aria-label="Toggle theme"
     >
       <Icon className="w-5 h-5" />

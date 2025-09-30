@@ -26,10 +26,20 @@ def verify_token(token: str) -> dict:
     """Verify and decode a JWT token"""
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        
+        # Check if token is expired
+        exp = payload.get("exp")
+        if exp and datetime.utcnow().timestamp() > exp:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has expired",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
         return payload
-    except JWTError:
+    except JWTError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
+            detail=f"Could not validate credentials: {str(e)}",
             headers={"WWW-Authenticate": "Bearer"},
         )

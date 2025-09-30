@@ -1,7 +1,7 @@
 // frontend/src/pages/SettingsPage.tsx
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth, useAuthActions } from '../store/auth';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth, useAuthActions, useAuthStore } from '../store/auth';
 import { useSyncStatus, useSyncActions } from '../store/app';
 import { useTheme } from '../lib/theme';
 import { authApi, profileApi, syncApi } from '../services/api';
@@ -27,6 +27,7 @@ type TabId = 'profile' | 'notifications' | 'privacy' | 'integrations';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { logout, updateUser } = useAuthActions();
   const syncStatus = useSyncStatus();
@@ -38,10 +39,22 @@ export default function SettingsPage() {
   const [connecting, setConnecting] = useState<{[key: string]: boolean}>({});
   const [refreshingStatus, setRefreshingStatus] = useState(false);
 
+  // Handle tab parameter from URL
+  useEffect(() => {
+    const tab = searchParams.get('tab') as TabId;
+    if (tab && ['profile', 'notifications', 'privacy', 'integrations'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
   // Fetch current sync status on component mount
   useEffect(() => {
-    fetchSyncStatus();
-  }, []);
+    // Only fetch if user is authenticated and not logging out
+    const authStore = useAuthStore.getState();
+    if (user && authStore.isAuthenticated && !authStore.isLoggingOut) {
+      fetchSyncStatus();
+    }
+  }, [user]);
 
   const fetchSyncStatus = async () => {
     setRefreshingStatus(true);

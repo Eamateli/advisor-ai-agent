@@ -127,11 +127,22 @@ class HybridSearchService:
         
         # Add doc_metadata filters (parameterized)
         if metadata_filters:
+            # Define allowed metadata keys to prevent injection
+            allowed_keys = {
+                'source_id', 'doc_type', 'from_email', 'to_email', 
+                'subject', 'company', 'contact_id', 'event_id'
+            }
+            
             for key, value in metadata_filters.items():
-                # Sanitize key to prevent injection
-                safe_key = re.sub(r'[^a-zA-Z0-9_]', '', key)
-                base_query += f" AND doc_metadata->>'{safe_key}' = :{safe_key}"
-                params[safe_key] = value
+                # Validate key against allowlist
+                if key not in allowed_keys:
+                    logger.warning(f"Rejected metadata filter key: {key}")
+                    continue
+                    
+                # Use parameterized query with validated key
+                param_name = f"meta_{key}"
+                base_query += f" AND doc_metadata->>'{key}' = :{param_name}"
+                params[param_name] = value
         
         base_query += " ORDER BY keyword_score DESC LIMIT :limit"
         params["limit"] = limit

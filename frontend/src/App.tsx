@@ -15,6 +15,8 @@ import { LoadingSpinner } from './components/ui/LoadingSpinner';
 // Pages (lazy loaded for better performance)
 const ChatPage = React.lazy(() => import('./pages/ChatPage'));
 const LoginPage = React.lazy(() => import('./pages/LoginPage'));
+const AuthCallbackPage = React.lazy(() => import('./pages/AuthCallbackPage'));
+const HistoryPage = React.lazy(() => import('./pages/HistoryPage'));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
 
@@ -68,13 +70,11 @@ function App() {
 
   // Initialize WebSocket connection when authenticated
   useEffect(() => {
-    if (isAuthenticated) {
+    const authToken = useAuthStore.getState().token;
+    if (isAuthenticated && authToken) {
       try {
-        const token = localStorage.getItem('access_token');
-        if (token) {
-          wsService.connect(token);
-          setWebSocketStatus(true);
-        }
+        wsService.connect(authToken);
+        setWebSocketStatus(true);
       } catch (error) {
         console.error('Failed to connect WebSocket:', error);
         setWebSocketStatus(false);
@@ -93,15 +93,24 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="system" storageKey="app-theme">
+      <ThemeProvider defaultTheme="dark" storageKey="app-theme">
         <Router>
           <Routes>
-            {/* Public route */}
+            {/* Public routes */}
             <Route
               path="/login"
               element={
                 <Suspense fallback={<PageLoader />}>
                   <LoginPage />
+                </Suspense>
+              }
+            />
+
+            <Route
+              path="/auth/callback"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AuthCallbackPage />
                 </Suspense>
               }
             />
@@ -114,6 +123,19 @@ function App() {
                   <AppLayout>
                     <Suspense fallback={<PageLoader />}>
                       <ChatPage />
+                    </Suspense>
+                  </AppLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/history"
+              element={
+                <ProtectedRoute>
+                  <AppLayout>
+                    <Suspense fallback={<PageLoader />}>
+                      <HistoryPage />
                     </Suspense>
                   </AppLayout>
                 </ProtectedRoute>
@@ -152,7 +174,7 @@ function App() {
 
           {/* Toast notifications */}
           <Toaster
-            position="top-right"
+            position="top-center"
             toastOptions={{
               duration: 4000,
               style: {

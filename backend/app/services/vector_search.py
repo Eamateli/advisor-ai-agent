@@ -75,11 +75,24 @@ class VectorSearchService:
             base_query += " AND doc_type = ANY(:doc_types)"
             params["doc_types"] = doc_types
         
-        # Add doc_metadata filters
+        # Add doc_metadata filters (parameterized to prevent SQL injection)
         if metadata_filters:
+            # Define allowed metadata keys to prevent injection
+            allowed_keys = {
+                'source_id', 'doc_type', 'from_email', 'to_email', 
+                'subject', 'company', 'contact_id', 'event_id'
+            }
+            
             for key, value in metadata_filters.items():
-                base_query += f" AND doc_metadata->>'{key}' = :{key}"
-                params[key] = value
+                # Validate key against allowlist
+                if key not in allowed_keys:
+                    logger.warning(f"Rejected metadata filter key: {key}")
+                    continue
+                    
+                # Use parameterized query with validated key
+                param_name = f"meta_{key}"
+                base_query += f" AND doc_metadata->>'{key}' = :{param_name}"
+                params[param_name] = value
         
         # Add similarity threshold and ordering
         base_query += """

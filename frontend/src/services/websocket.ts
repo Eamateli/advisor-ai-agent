@@ -1,5 +1,6 @@
 // frontend/src/services/websocket.ts - COMPLETE IMPLEMENTATION
 import { config, wsConfig } from '../lib/config';
+import { useAuthStore } from '../store/auth';
 
 export type WebSocketStatus = 'connecting' | 'connected' | 'disconnecting' | 'disconnected' | 'error';
 
@@ -45,6 +46,16 @@ class WebSocketService {
 
     if (token) {
       this.accessToken = token;
+    } else {
+      // Get token from auth store if not provided
+      const authStore = useAuthStore.getState();
+      if (authStore.token && authStore.isTokenValid()) {
+        this.accessToken = authStore.token;
+      } else {
+        console.error('No valid token available for WebSocket connection');
+        this.setStatus('error');
+        return;
+      }
     }
 
     this.setStatus('connecting');
@@ -152,6 +163,7 @@ class WebSocketService {
     onError: (error: string) => void
   ): Promise<void> {
     if (!this.isConnected()) {
+      console.log('⚠️ WebSocket not connected, cannot send chat message');
       onError('WebSocket not connected');
       return;
     }
@@ -163,25 +175,31 @@ class WebSocketService {
     const handleStreamChunk = (message: WebSocketMessage) => {
       if (message.messageId !== messageId) return;
 
+      console.log('📨 WebSocket message received:', message.type, message.data);
+
       switch (message.type) {
         case 'stream_start':
-          console.log('Stream started');
+          console.log('📡 Stream started');
           break;
 
         case 'stream_chunk':
-          const chunk = message.data?.content || '';
-          accumulatedContent += chunk;
-          onChunk(chunk);
+          // Handle different event types from the agent
+          if (message.data?.type === 'content') {
+            const chunk = message.data?.content || '';
+            accumulatedContent += chunk;
+            console.log('📝 Content chunk:', chunk);
+            onChunk(chunk);
+          }
           break;
 
         case 'stream_end':
-          console.log('Stream completed');
+          console.log('✅ Stream completed');
           onComplete(message.data?.metadata);
           this.removeMessageCallback(handleStreamChunk);
           break;
 
         case 'error':
-          console.error('Stream error:', message.data);
+          console.error('❌ Stream error:', message.data);
           onError(message.data?.message || 'Unknown error');
           this.removeMessageCallback(handleStreamChunk);
           break;
@@ -193,12 +211,14 @@ class WebSocketService {
 
     // Send the message
     try {
+      console.log('📤 Sending WebSocket message:', { type: 'chat', content, messageId });
       this.send({
         type: 'chat',
         data: { content },
         messageId,
       });
     } catch (error) {
+      console.error('❌ Failed to send WebSocket message:', error);
       this.removeMessageCallback(handleStreamChunk);
       onError(error instanceof Error ? error.message : 'Failed to send message');
     }
