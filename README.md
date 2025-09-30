@@ -10,7 +10,7 @@
 
 This is a comprehensive AI agent built for financial advisors that provides intelligent automation, client management, and proactive assistance. The agent integrates seamlessly with Gmail, Google Calendar, and HubSpot CRM to provide a unified experience for financial professionals.
 
-### Built for the $3,000 Paid Challenge
+### Built for a Challenge
 - **96-hour development sprint** (Sept 26-30, 2025)
 - **Production-ready architecture**
 - **Enterprise-grade security**
