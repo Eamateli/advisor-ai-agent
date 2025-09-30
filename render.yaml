@@ -3,7 +3,6 @@ databases:
   - name: financial-advisor-db
     plan: free  # or 'starter' for production
     databaseName: financial_advisor_agent
-    user: postgres
     postgresMajorVersion: 15
     ipAllowList: []  # Allow connections from Render services
 
