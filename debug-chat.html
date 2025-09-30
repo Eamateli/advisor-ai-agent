@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Chat Debug Tool</title>
+</head>
+<body>
+    <h1>Chat Debug Tool</h1>
+    <div id="status"></div>
+    <button onclick="testBackend()">Test Backend</button>
+    <button onclick="testAuth()">Test Auth</button>
+    <button onclick="testChat()">Test Chat</button>
+    
+    <script>
+        const status = document.getElementById('status');
+        
+        function log(message) {
+            status.innerHTML += '<div>' + new Date().toISOString() + ': ' + message + '</div>';
+            console.log(message);
+        }
+        
+        async function testBackend() {
+            log('🔍 Testing backend health...');
+            try {
+                const response = await fetch('http://localhost:8000/health');
+                log('Health status: ' + response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Backend is healthy: ' + JSON.stringify(data));
+                } else {
+                    log('❌ Backend health check failed');
+                }
+            } catch (error) {
+                log('❌ Backend test failed: ' + error.message);
+            }
+        }
+        
+        async function testAuth() {
+            log('🔍 Testing auth endpoint...');
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/auth/me');
+                log('Auth status: ' + response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ Auth working: ' + JSON.stringify(data));
+                } else {
+                    log('❌ Auth failed: ' + response.status);
+                }
+            } catch (error) {
+                log('❌ Auth test failed: ' + error.message);
+            }
+        }
+        
+        async function testChat() {
+            log('🔍 Testing chat endpoint...');
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/chat/stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream'
+                    },
+                    body: JSON.stringify({ message: 'Hello, test message' })
+                });
+                
+                log('Chat status: ' + response.status);
+                
+                if (response.ok) {
+                    log('✅ Chat endpoint responding');
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        const chunk = decoder.decode(value);
+                        log('📡 Received chunk: ' + chunk.substring(0, 100));
+                    }
+                } else {
+                    log('❌ Chat failed: ' + response.status);
+                }
+            } catch (error) {
+                log('❌ Chat test failed: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>
